@@ -33,18 +33,40 @@ const AdminVerification = React.lazy(() => import("@/pages/admin/AdminVerificati
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
 const pageVariants = {
-  initial: { opacity: 0, y: 12, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
-  exit: { opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } },
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] } },
 };
+
+// Premium loading fallback with branded spinner
+const LoadingFallback = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <div className="relative">
+      <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-glow-primary animate-pulse">
+        <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+      </div>
+      <div className="absolute -inset-1 rounded-2xl border-2 border-primary/20 animate-ping opacity-30" />
+    </div>
+    <p className="text-xs text-muted-foreground font-medium animate-pulse">Loading...</p>
+  </div>
+);
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="min-h-screen">
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<LoadingFallback />}>
       {children}
     </Suspense>
   </motion.div>
 );
+
+// Normalize route key — group dynamic routes under a base key
+// so /chat/abc and /chat/def don't conflict in AnimatePresence
+const getRouteKey = (pathname: string): string => {
+  // For dynamic segments, use the base path
+  if (pathname.startsWith("/chat/")) return "/chat";
+  if (pathname.startsWith("/profile/")) return "/profile";
+  return pathname;
+};
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -60,7 +82,7 @@ const AnimatedRoutes = () => {
 
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Routes location={location} key={getRouteKey(location.pathname)}>
         <Route path="/splash" element={<PageWrapper><Splash /></PageWrapper>} />
         <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
         <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />

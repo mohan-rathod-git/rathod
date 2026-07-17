@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { dbProfileToDisplay } from "@/lib/profileUtils";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ExplorePageSkeleton } from "@/components/SkeletonLoaders";
+import { motion, AnimatePresence } from "framer-motion";
+import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 
 const Explore = () => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -66,28 +68,50 @@ const Explore = () => {
     <div ref={containerRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       className="min-h-screen bg-background pb-20 overflow-y-auto">
       <PullIndicator />
-      <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pb-3 pt-12">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground active:scale-95 transition-transform">
+      <div className="sticky top-0 z-40 bg-card/85 backdrop-blur-2xl border-b border-border/30 px-4 pb-3 pt-12">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 mb-3"
+        >
+          <motion.button
+            whileTap={{ scale: 0.88 }}
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground transition-colors hover:bg-muted/80"
+          >
             <ArrowLeft className="h-4 w-4" />
-          </button>
+          </motion.button>
           <h1 className="flex-1 font-heading text-lg font-bold text-foreground">Explore</h1>
-          <div className="flex rounded-xl bg-muted p-0.5">
-            <button onClick={() => setView("grid")} className={`rounded-lg p-2 transition-all ${view === "grid" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}>
+          <div className="flex rounded-xl bg-muted/60 p-0.5">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setView("grid")}
+              className={`rounded-lg p-2 transition-all duration-300 ${view === "grid" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}
+            >
               <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button onClick={() => setView("list")} className={`rounded-lg p-2 transition-all ${view === "list" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setView("list")}
+              className={`rounded-lg p-2 transition-all duration-300 ${view === "list" ? "bg-card shadow-soft text-foreground" : "text-muted-foreground"}`}
+            >
               <List className="h-4 w-4" />
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
         <SearchBar onFilterClick={() => setFilterOpen(true)} value={searchQuery} onChange={setSearchQuery} />
         <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4">
           {chips.map((c) => (
-            <button key={c} onClick={() => setActiveChip(c)}
-              className={`flex-shrink-0 rounded-xl px-4 py-2 text-xs font-medium transition-all active:scale-95 ${
-                c === activeChip ? "gradient-saffron text-white shadow-glow-primary" : "bg-card border border-border text-foreground shadow-soft"
-              }`}>{c}</button>
+            <motion.button
+              key={c}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setActiveChip(c)}
+              className={`flex-shrink-0 rounded-xl px-4 py-2 text-xs font-medium transition-all duration-300 ${
+                c === activeChip ? "gradient-saffron text-white shadow-glow-primary" : "bg-card border border-border/50 text-foreground shadow-soft hover:border-primary/15"
+              }`}
+            >
+              {c}
+            </motion.button>
           ))}
         </div>
       </div>
@@ -96,26 +120,43 @@ const Explore = () => {
         {loading ? (
           <ExplorePageSkeleton />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl bg-card shadow-soft mx-4 border border-border/50">
-            <p className="text-sm font-medium text-foreground">No profiles found</p>
-            <p className="text-xs text-muted-foreground mt-1">Try different filters</p>
-          </div>
+          <EmptyStateGraphic
+            variant="no-results"
+            title="No profiles found"
+            subtitle="Try adjusting your filters or search for something different"
+          />
         ) : (
           <>
-            <p className="mb-3 text-xs text-muted-foreground font-medium">{filtered.length} profiles</p>
-            {view === "grid" ? (
-              <div className="grid grid-cols-2 gap-3">
-                {filtered.map((p, i) => (
-                  <PremiumProfileCard key={p.id} profile={p} index={i} variant="grid" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {filtered.map((p, i) => (
-                  <PremiumProfileCard key={p.id} profile={p} index={i} variant="list" />
-                ))}
-              </div>
-            )}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-3 text-xs text-muted-foreground font-medium"
+            >
+              {filtered.length} profile{filtered.length !== 1 ? "s" : ""}
+            </motion.p>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={view}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+              >
+                {view === "grid" ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {filtered.map((p, i) => (
+                      <PremiumProfileCard key={p.id} profile={p} index={i} variant="grid" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {filtered.map((p, i) => (
+                      <PremiumProfileCard key={p.id} profile={p} index={i} variant="list" />
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </>
         )}
       </div>

@@ -135,6 +135,7 @@ export function useRealtimeMessages(otherUserId?: string) {
             partnerId,
             lastMessage: msg.content,
             lastTime: msg.created_at,
+            lastSenderId: msg.sender_id,
             unread: msg.sender_id !== user.id && !msg.is_read ? 1 : 0,
           });
         } else if (msg.sender_id !== user.id && !msg.is_read) {

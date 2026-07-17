@@ -4,13 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRealtimeMessages } from "@/hooks/useRealtime";
 import { ArrowLeft, Send, Loader2, Phone, Video, CheckCheck, Check } from "lucide-react";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import CallScreen from "@/components/chat/CallScreen";
+import { useGoBack } from "@/hooks/useGoBack";
+import EmojiPicker from "@/components/chat/EmojiPicker";
+import { motion, AnimatePresence } from "framer-motion";
+import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 
 const Chat = () => {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack("/messages");
   const { user } = useAuth();
   const { messages, loading } = useRealtimeMessages(partnerId);
   const { localStream, remoteStream, callStatus, callType, startCall, acceptCall, rejectCall, endCall, isCallReady } = useWebRTC(user?.id, partnerId);
@@ -18,8 +23,10 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [partner, setPartner] = useState<any>(null);
   const [partnerTyping, setPartnerTyping] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!partnerId) return;
@@ -79,11 +86,19 @@ const Chat = () => {
     typingTimeout.current = setTimeout(() => sendTypingStatus(false), 2000);
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    setText((prev) => prev + emoji);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   const handleSend = async () => {
     if (!text.trim() || !user || !partnerId) return;
     setSending(true);
     sendTypingStatus(false);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    setShowEmoji(false);
     await supabase.from("messages").insert({
       sender_id: user.id, receiver_id: partnerId, content: text.trim(),
     });
@@ -94,10 +109,14 @@ const Chat = () => {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
-        <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform">
+      <div className="flex items-center gap-3 bg-card/85 backdrop-blur-2xl border-b border-border/50 px-4 pt-12 pb-3 shadow-sm z-10">
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={goBack}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform"
+        >
           <ArrowLeft className="h-4 w-4 text-foreground" />
-        </button>
+        </motion.button>
         <div className="relative">
           <img src={partner?.photo_url || "/placeholder.svg"} alt="" className="h-10 w-10 rounded-2xl object-cover" />
           {partner?.is_online && <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-400" />}
@@ -110,36 +129,69 @@ const Chat = () => {
             <p className="text-[10px] text-emerald-500 font-semibold">Online now</p>
           ) : null}
         </div>
-        <button onClick={() => startCall('video')} disabled={!isCallReady} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50">
-          <Video className="h-4 w-4 text-foreground" />
-        </button>
-        <button onClick={() => startCall('audio')} disabled={!isCallReady} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50">
-          <Phone className="h-4 w-4 text-foreground" />
-        </button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => startCall('video')}
+          disabled={!isCallReady}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50 text-foreground hover:bg-primary/10 hover:text-primary"
+        >
+          <Video className="h-4 w-4" />
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => startCall('audio')}
+          disabled={!isCallReady}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50 text-foreground hover:bg-primary/10 hover:text-primary"
+        >
+          <Phone className="h-4 w-4" />
+        </motion.button>
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-        ) : messages.length === 0 ? (
-          <div className="text-center py-20 animate-fade-up">
-            <p className="text-3xl mb-2">👋</p>
-            <p className="text-sm font-medium text-foreground">Start the conversation</p>
-            <p className="text-xs text-muted-foreground mt-1">Say something nice!</p>
+          <div className="flex justify-center py-20">
+            <div className="relative">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="absolute inset-0 h-8 w-8 animate-ping text-primary opacity-20"><Loader2 className="h-8 w-8" /></div>
+            </div>
           </div>
+        ) : messages.length === 0 ? (
+          <EmptyStateGraphic
+            variant="no-messages"
+            title="Start the conversation"
+            subtitle="Say something nice to break the ice!"
+          />
         ) : (
-          <>
+          <AnimatePresence>
             {messages.map((msg, i) => {
               const isMine = msg.sender_id === user?.id;
+              
+              // Determine if we should show a date separator
+              const currentDate = new Date(msg.created_at);
+              const prevMsg = i > 0 ? messages[i - 1] : null;
+              const showDateSeparator = !prevMsg || !isSameDay(currentDate, new Date(prevMsg.created_at));
+
               return (
-                <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                  style={{ animation: `fadeInUp 0.3s cubic-bezier(0.16,1,0.3,1) ${Math.min(i * 0.03, 0.3)}s both` }}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                    isMine
-                      ? "gradient-saffron text-white rounded-br-lg shadow-glow-primary/30"
-                      : "bg-card border border-border/50 text-foreground rounded-bl-lg shadow-soft"
-                  }`}>
+                <div key={msg.id} className="space-y-4">
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-4 relative">
+                      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/30"></div></div>
+                      <span className="relative bg-background px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 rounded-full">
+                        {isSameDay(currentDate, new Date()) ? "Today" : format(currentDate, "MMM d, yyyy")}
+                      </span>
+                    </div>
+                  )}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+                      isMine
+                        ? "bg-primary text-white rounded-br-sm shadow-glow-primary dark:bg-primary/90"
+                        : "bg-card border border-border/50 text-foreground rounded-bl-sm shadow-soft dark:bg-muted/40"
+                    }`}>
                     <p className="text-[13px] leading-relaxed">{msg.content}</p>
                     <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : ""}`}>
                       <p className={`text-[9px] ${isMine ? "text-white/50" : "text-muted-foreground"}`}>
@@ -153,39 +205,57 @@ const Chat = () => {
                         )
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               );
             })}
             {partnerTyping && (
-              <div className="flex justify-start">
-                <div className="bg-card border border-border/50 rounded-2xl rounded-bl-lg px-4 py-3 shadow-soft">
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="flex justify-start"
+              >
+                <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 shadow-soft dark:bg-muted/40">
                   <div className="flex gap-1">
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
-          </>
+          </AnimatePresence>
         )}
       </div>
 
       {/* Input */}
-      <div className="border-t border-border/50 bg-card/90 backdrop-blur-xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-2">
-          <input
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder="Type a message..."
-            className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground shadow-soft placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-          />
-          <button onClick={handleSend} disabled={!text.trim() || sending}
-            className="flex h-12 w-12 items-center justify-center rounded-2xl gradient-saffron text-white shadow-glow-primary disabled:opacity-40 active:scale-95 transition-all">
-            <Send className="h-5 w-5" />
-          </button>
+      <div className="border-t border-border/50 bg-card/90 backdrop-blur-2xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.06)]">
+        <div className="flex flex-col gap-2 relative">
+          <div className="flex items-center gap-2">
+            <EmojiPicker
+              isOpen={showEmoji}
+              onToggle={() => setShowEmoji(!showEmoji)}
+              onSelect={handleEmojiSelect}
+            />
+            
+            <input
+              ref={inputRef}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Type a message..."
+              className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all placeholder:text-muted-foreground"
+            />
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={handleSend}
+              disabled={!text.trim() || sending}
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl gradient-saffron text-white shadow-glow-primary disabled:opacity-40 disabled:shadow-none transition-all group overflow-hidden relative"
+            >
+              <div className="absolute inset-0 animate-shimmer opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)", backgroundSize: "200% 100%" }} />
+              <Send className="h-4 w-4 relative z-10 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </motion.button>
+          </div>
         </div>
       </div>
 

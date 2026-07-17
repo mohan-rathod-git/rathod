@@ -15,7 +15,8 @@ export default {
     extend: {
       fontFamily: {
         heading: ["Outfit", "sans-serif"],
-        body: ["DM Sans", "sans-serif"],
+        body: ["Plus Jakarta Sans", "DM Sans", "sans-serif"],
+        display: ["Playfair Display", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -65,6 +66,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "rose-gold": "hsl(var(--rose-gold))",
+        "deep-maroon": "hsl(var(--deep-maroon))",
+        "warm-ivory": "hsl(var(--warm-ivory))",
+        "mehendi-green": "hsl(var(--mehendi-green))",
+        "gold-shimmer": "hsl(var(--gold-shimmer))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -72,12 +78,16 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         "2xl": "1rem",
         "3xl": "1.5rem",
+        "4xl": "2rem",
       },
       boxShadow: {
         "soft": "0 1px 3px 0 hsl(var(--foreground) / 0.04), 0 4px 12px -2px hsl(var(--foreground) / 0.06)",
         "medium": "0 2px 8px -2px hsl(var(--foreground) / 0.06), 0 8px 24px -4px hsl(var(--foreground) / 0.08)",
         "elevated": "0 4px 16px -4px hsl(var(--foreground) / 0.08), 0 12px 40px -8px hsl(var(--foreground) / 0.12)",
         "glow-primary": "0 4px 24px -4px hsl(var(--primary) / 0.3)",
+        "glow-gold": "0 4px 24px -4px hsl(var(--gold-shimmer) / 0.3)",
+        "inner-glow": "inset 0 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 0 rgba(0,0,0,0.05)",
+        "premium": "0 8px 32px -8px hsl(var(--primary) / 0.2), 0 16px 48px -12px hsl(var(--foreground) / 0.1)",
       },
       keyframes: {
         "accordion-down": {
