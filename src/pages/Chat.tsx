@@ -205,6 +205,7 @@ const Chat = () => {
                         )
                       )}
                     </div>
+                    </div>
                   </motion.div>
                 </div>
               );
