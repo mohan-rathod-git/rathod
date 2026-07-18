@@ -6,14 +6,16 @@ interface SEOProps {
   image?: string;
   url?: string;
   type?: string;
+  structuredData?: Record<string, any>;
 }
 
 export default function SEO({
   title = 'Banjara Bandhan - Matrimony',
   description = 'Connecting Souls of the Wandering Star — Premium Banjara Community Matrimony Platform',
   image = '/logo.jpg',
-  url = 'https://banjarabandhan.com',
-  type = 'website'
+  url = 'https://www.banjarabandhan.in',
+  type = 'website',
+  structuredData
 }: SEOProps) {
   const pageTitle = title === 'Banjara Bandhan - Matrimony' ? title : `${title} | Banjara Bandhan`;
   
@@ -40,6 +42,12 @@ export default function SEO({
       {/* Additional SEO Tags */}
       <link rel="canonical" href={url} />
       <meta name="robots" content="index, follow" />
+
+      {structuredData && (
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      )}
     </Helmet>
   );
 }

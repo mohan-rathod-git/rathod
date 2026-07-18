@@ -134,6 +134,7 @@ const Settings = () => {
         )}
 
         <Section title="Help & Legal">
+          <Row icon={HelpCircle} label="About Us" onClick={() => navigate("/about")} />
           <Row icon={HelpCircle} label="FAQ & Support" onClick={() => navigate("/settings/faq")} />
           <Row icon={FileText} label="Privacy Policy" onClick={() => navigate("/settings/privacy-policy")} />
           <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/settings/terms")} />

@@ -21,6 +21,7 @@ const Settings = React.lazy(() => import("@/pages/Settings"));
 const Subscription = React.lazy(() => import("@/pages/Subscription"));
 const HoroscopeMatch = React.lazy(() => import("@/pages/HoroscopeMatch"));
 const SuccessStories = React.lazy(() => import("@/pages/SuccessStories"));
+const AboutUs = React.lazy(() => import("@/pages/AboutUs"));
 const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("@/pages/auth/ResetPassword"));
 const NotificationPreferences = React.lazy(() => import("@/pages/NotificationPreferences"));
@@ -107,6 +108,7 @@ const AnimatedRoutes = () => {
         <Route path="/subscription" element={<PageWrapper><ProtectedRoute><Subscription /></ProtectedRoute></PageWrapper>} />
         <Route path="/horoscope" element={<PageWrapper><ProtectedRoute><HoroscopeMatch /></ProtectedRoute></PageWrapper>} />
         <Route path="/success-stories" element={<PageWrapper><ProtectedRoute><SuccessStories /></ProtectedRoute></PageWrapper>} />
+        <Route path="/about" element={<PageWrapper><ProtectedRoute><AboutUs /></ProtectedRoute></PageWrapper>} />
         <Route path="/verify-profile" element={<PageWrapper><ProtectedRoute><VerifyProfile /></ProtectedRoute></PageWrapper>} />
         <Route path="/admin/verification" element={<PageWrapper><ProtectedRoute><AdminVerification /></ProtectedRoute></PageWrapper>} />
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
