@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, User, Mail, Lock } from "lucide-react";
 import { STATES } from "@/types";
 import { ensureProfileRow } from "@/lib/profilePersistence";
+import { z } from "zod";
 
 const genders = [
   { label: "Male", emoji: "👨" },
@@ -61,8 +62,20 @@ const RegisterStep1 = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName || !form.gender) {
-      toast.error("Please fill required fields (Name & Gender)");
+
+    const registerSchema = z.object({
+      fullName: z.string().min(2, "Name must be at least 2 characters"),
+      gender: z.string().min(1, "Please select a gender"),
+      email: isReturningUser ? z.string().optional().or(z.literal('')) : z.string().email("Please enter a valid email address"),
+      password: isReturningUser ? z.string().optional().or(z.literal('')) : z.string().min(6, "Password must be at least 6 characters"),
+      dateOfBirth: z.string().optional(),
+      state: z.string().optional(),
+      cityVillage: z.string().optional(),
+    });
+
+    const validation = registerSchema.safeParse(form);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
@@ -75,16 +88,8 @@ const RegisterStep1 = () => {
         navigate("/register/step2");
       } else {
         // New user signup flow
-        if (!form.email || !form.password) {
-          toast.error("Please fill email and password");
-          setLoading(false);
-          return;
-        }
-        if (form.password.length < 6) {
-          toast.error("Password must be at least 6 characters");
-          setLoading(false);
-          return;
-        }
+        // New user signup flow
+
 
         const { data, error } = await supabase.auth.signUp({
           email: form.email,

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { dbProfileToDisplay } from "@/lib/profileUtils";
 import { toast } from "sonner";
-import { ArrowLeft, Share2, Heart, MessageCircle, Shield, Crown, MapPin, Briefcase, GraduationCap, Ruler, Users, Star, Ban } from "lucide-react";
+import { ArrowLeft, Share2, Heart, MessageCircle, Shield, Crown, MapPin, Briefcase, GraduationCap, Ruler, Users, Star, Ban, Flag } from "lucide-react";
 import ProfilePhotoGallery from "@/components/profile/ProfilePhotoGallery";
 import { motion } from "framer-motion";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
@@ -100,6 +100,20 @@ const ProfileDetail = () => {
     }
   };
 
+  const handleReport = async () => {
+    if (!user || !profile) return;
+    const { error } = await supabase.from("reports" as any).insert({
+      reporter_id: user.id,
+      reported_id: profile.userId,
+      reason: "Inappropriate content or behavior",
+    });
+    if (error) {
+      toast.error("Failed to submit report");
+    } else {
+      toast.success("User reported to admins");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -161,6 +175,13 @@ const ProfileDetail = () => {
               className="flex h-10 w-10 items-center justify-center rounded-2xl bg-card/80 shadow-soft backdrop-blur-md border border-white/10"
             >
               <Ban className="h-5 w-5 text-destructive" />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              onClick={handleReport}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl bg-card/80 shadow-soft backdrop-blur-md border border-white/10"
+            >
+              <Flag className="h-5 w-5 text-orange-500" />
             </motion.button>
           </div>
         </div>

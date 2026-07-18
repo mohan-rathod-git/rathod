@@ -14,6 +14,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ExplorePageSkeleton } from "@/components/SkeletonLoaders";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
+import SEO from "@/components/SEO";
 
 const Explore = () => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -67,6 +68,7 @@ const Explore = () => {
   return (
     <div ref={containerRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       className="min-h-screen bg-background pb-20 overflow-y-auto">
+      <SEO title="Explore Matches" description="Find your perfect Banjara community match through advanced filters and search." />
       <PullIndicator />
       <div className="sticky top-0 z-40 bg-card/85 backdrop-blur-2xl border-b border-border/30 px-4 pb-3 pt-12">
         <motion.div

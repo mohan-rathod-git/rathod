@@ -9,17 +9,29 @@ import { getPostAuthRoute } from "@/lib/profileUtils";
 import { ensureProfileRow } from "@/lib/profilePersistence";
 import { motion } from "framer-motion";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const loginSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) { toast.error("Please fill in all fields"); return; }
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  const onSubmit = async (values: LoginFormValues) => {
+    const { email, password } = values;
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -164,7 +176,7 @@ const Login = () => {
         </motion.div>
 
         <motion.form
-          onSubmit={handleLogin}
+          onSubmit={handleSubmit(onSubmit)}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
@@ -176,11 +188,12 @@ const Login = () => {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 id="login-email"
-                type="email" placeholder="you@email.com" value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-11 h-13 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium focus:border-primary/30 transition-all duration-300"
+                type="email" placeholder="you@email.com"
+                {...register("email")}
+                className={`pl-11 h-13 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all duration-300 ${errors.email ? "border-destructive focus:border-destructive ring-destructive/20" : "focus:border-primary/30"}`}
               />
             </div>
+            {errors.email && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.email.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -189,14 +202,15 @@ const Login = () => {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 id="login-password"
-                type={showPassword ? "text" : "password"} placeholder="••••••••" value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-11 pr-11 h-13 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium focus:border-primary/30 transition-all duration-300"
+                type={showPassword ? "text" : "password"} placeholder="••••••••"
+                {...register("password")}
+                className={`pl-11 pr-11 h-13 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all duration-300 ${errors.password ? "border-destructive focus:border-destructive ring-destructive/20" : "focus:border-primary/30"}`}
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground active:scale-90 transition-all">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {errors.password && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.password.message}</p>}
           </div>
 
           <motion.div whileTap={{ scale: 0.97 }}>
