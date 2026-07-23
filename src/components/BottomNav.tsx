@@ -14,13 +14,21 @@ const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const activeIndex = tabs.findIndex((tab) => tab.path === location.pathname);
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-      {/* Outer centering wrapper for desktop */}
-      <div className="w-full max-w-[480px] bg-card/90 backdrop-blur-2xl border-t border-border/30 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center justify-around px-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0px)' }}>
+    /*
+     * BottomNav sits inside AppShell's max-480px container.
+     * We use sticky bottom-0 instead of fixed so it stays within
+     * the centered container on desktop rather than spanning the full viewport.
+     */
+    <nav className="sticky bottom-0 left-0 right-0 z-50 mt-auto">
+      <div
+        className="bg-card/92 backdrop-blur-2xl border-t border-border/30"
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          boxShadow: "0 -4px 24px -4px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div className="flex items-center justify-around px-1">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.path;
             return (
@@ -28,7 +36,7 @@ const BottomNav = () => {
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 whileTap={{ scale: 0.85 }}
-                className={`relative flex flex-col items-center gap-0.5 py-2.5 px-4 transition-colors duration-300 ${
+                className={`relative flex flex-col items-center gap-0.5 py-2.5 px-4 min-w-0 flex-1 transition-colors duration-300 ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >
@@ -54,7 +62,7 @@ const BottomNav = () => {
                 </span>
 
                 {isActive && (
-                  <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/8 blur-md" />
+                  <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/8 blur-md pointer-events-none" />
                 )}
               </motion.button>
             );

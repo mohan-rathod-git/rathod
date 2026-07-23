@@ -33,29 +33,25 @@
     min-height: 100dvh;
   }
 
-  /* Desktop layout: center the app with max-width, show decorative bg */
+  /* Desktop layout: center the app with max-width */
   #root {
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    position: relative;
   }
 
-  /* On large screens, wrap inner app in a centered container */
-  @media (min-width: 768px) {
-    body {
-      background: radial-gradient(ellipse at center, hsl(14 30% 15%) 0%, hsl(355 60% 10%) 50%, hsl(20 20% 5%) 100%);
+  /* Desktop decorative background behind the app card */
+  @media (min-width: 640px) {
+    html, body {
+      background: radial-gradient(ellipse at 50% 30%, hsl(355 60% 18%) 0%, hsl(14 50% 10%) 40%, hsl(20 15% 5%) 100%);
     }
     #root {
       align-items: center;
-      justify-content: flex-start;
-    }
-    /* All pages get a max-width card container on desktop */
-    .min-h-screen {
-      max-width: 480px;
-      width: 100%;
-      box-shadow: 0 0 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+      background: transparent;
     }
   }
 

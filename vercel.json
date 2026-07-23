@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": "vite",
-  "installCommand": "npm install",
+  "installCommand": "npm install --include=dev",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
@@ -9,13 +9,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "NPM_FLAGS": "--include=dev"
-    }
-  }
+  ]
 }
