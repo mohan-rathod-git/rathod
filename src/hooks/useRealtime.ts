@@ -120,13 +120,17 @@ export function useRealtimeMessages(otherUserId?: string) {
   const debounceRef = useRef<NodeJS.Timeout>();
 
   const fetchConversations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const { data } = await supabase
       .from("messages")
       .select("*")
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
-      .limit(200); // Cap to recent messages
+      .limit(200);
 
     if (data) {
       const convMap = new Map<string, any>();
@@ -150,7 +154,11 @@ export function useRealtimeMessages(otherUserId?: string) {
   }, [user]);
 
   const fetchMessages = useCallback(async () => {
-    if (!user || !otherUserId) return;
+    if (!user || !otherUserId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const { data } = await supabase
       .from("messages")
       .select("*")
@@ -158,7 +166,7 @@ export function useRealtimeMessages(otherUserId?: string) {
         `and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`
       )
       .order("created_at", { ascending: true })
-      .limit(100); // Cap to last 100 messages
+      .limit(100);
     setMessages(data || []);
     setLoading(false);
   }, [user, otherUserId]);
@@ -170,10 +178,10 @@ export function useRealtimeMessages(otherUserId?: string) {
       fetchConversations();
     }
 
+    const channelKey = otherUserId ? `messages-${user?.id}-${otherUserId}` : `messages-inbox-${user?.id}`;
     const channel = supabase
-      .channel(`messages-${otherUserId || "inbox"}`)
+      .channel(channelKey)
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
-        // Debounce message refetches (rapid typing sends multiple inserts)
         clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
           if (otherUserId) fetchMessages();
@@ -186,7 +194,7 @@ export function useRealtimeMessages(otherUserId?: string) {
       clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [otherUserId, fetchMessages, fetchConversations]);
+  }, [user, otherUserId, fetchMessages, fetchConversations]);
 
-  return { messages, conversations, loading };
+  return { messages, conversations, loading, refetch: otherUserId ? fetchMessages : fetchConversations };
 }

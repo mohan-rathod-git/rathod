@@ -38,7 +38,7 @@ const Chat = () => {
   useEffect(() => {
     if (!partnerId) return;
     supabase.from("profiles").select("full_name, photo_url, is_online")
-      .eq("user_id", partnerId).single()
+      .eq("user_id", partnerId).maybeSingle()
       .then(({ data }) => setPartner(data));
   }, [partnerId]);
 

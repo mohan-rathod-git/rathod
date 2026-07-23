@@ -121,17 +121,15 @@ const Settings = () => {
         </Section>
 
         <Section title="Language">
-          <div className="px-1">
-            <LanguagePicker variant="inline" />
-          </div>
+          <Row icon={Globe} label="App Language" onClick={() => navigate("/settings/language")} />
         </Section>
 
         <Section title="Notifications">
           <Row icon={Bell} label="Notification Preferences" onClick={() => navigate("/notification-preferences")} />
         </Section>
 
-        <Section title="Privacy">
-          <Row icon={Shield} label="Hide Profile" right={<Toggle on={hideProfile} onToggle={handleHideProfile} />} onClick={handleHideProfile} />
+        <Section title="Privacy & Security">
+          <Row icon={Shield} label="Hide Profile from Discovery" right={<Toggle on={hideProfile} onToggle={handleHideProfile} />} onClick={handleHideProfile} />
           {/* Storage usage bar */}
           <div className="px-4 py-3 space-y-1.5">
             <div className="flex items-center justify-between">
@@ -152,31 +150,14 @@ const Settings = () => {
               </p>
             )}
           </div>
-          <Row icon={Lock} label={`Blocked Users (${blockedUsers.length})`} onClick={() => setShowBlocked(!showBlocked)} />
+          <Row icon={Lock} label={`Blocked Users (${blockedUsers.length})`} onClick={() => navigate("/settings/blocked")} />
         </Section>
 
-        {showBlocked && (
-          <div className="mb-5 space-y-2">
-            {blockedUsers.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No blocked users</p>
-              ) : blockedUsers.map((b) => (
-              <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft border border-border/50">
-                <img src={b.blockedProfile?.photo_url || "/placeholder.svg"} alt="" className="h-10 w-10 rounded-xl object-cover" />
-                <span className="flex-1 text-sm font-medium text-foreground">{b.blockedProfile?.full_name || "User"}</span>
-                <button onClick={() => handleUnblock(b.id)} className="text-xs font-semibold text-primary px-3 py-1.5 rounded-lg bg-primary/10 active:scale-95 transition-transform">
-                  Unblock
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Section title="Help & Legal">
+        <Section title="Help & Support">
           <Row icon={HelpCircle} label="About Us" onClick={() => navigate("/about")} />
           <Row icon={HelpCircle} label="FAQ & Support" onClick={() => navigate("/settings/faq")} />
-          <Row icon={FileText} label="Privacy Policy" onClick={() => navigate("/legal#privacy")} />
-          <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/legal#terms")} />
-          <Row icon={FileText} label="Community Guidelines" onClick={() => navigate("/legal#community")} />
+          <Row icon={Globe} label="Share Feedback" onClick={() => navigate("/feedback")} />
+          <Row icon={FileText} label="Privacy Policy & Terms" onClick={() => navigate("/legal")} />
         </Section>
 
         <Section title="Account">

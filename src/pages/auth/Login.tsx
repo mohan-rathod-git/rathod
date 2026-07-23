@@ -230,65 +230,65 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
-      {/* ═══ Premium Gradient Hero with Mehendi ═══ */}
-      <div className="relative px-6 pt-14 pb-16 text-center overflow-hidden">
-        <div
-          className="absolute inset-0 animate-gradient-shift"
-          style={{
-            background: "linear-gradient(145deg, hsl(355 60% 22%) 0%, hsl(14 80% 52%) 40%, hsl(38 75% 55%) 70%, hsl(355 50% 32%) 100%)",
-            backgroundSize: "200% 200%",
-          }}
-        />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="w-full max-w-md flex flex-col min-h-screen sm:min-h-0 sm:my-8 sm:rounded-3xl sm:shadow-premium sm:border sm:border-border/50 overflow-hidden bg-background">
+        {/* ═══ Premium Gradient Hero ═══ */}
+        <div className="relative px-6 pt-8 pb-10 text-center overflow-hidden z-0">
+          <div
+            className="absolute inset-0 animate-gradient-shift"
+            style={{
+              background: "linear-gradient(145deg, hsl(355 60% 22%) 0%, hsl(14 80% 52%) 40%, hsl(38 75% 55%) 70%, hsl(355 50% 32%) 100%)",
+              backgroundSize: "200% 200%",
+            }}
+          />
 
-        <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
+          <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
 
-        <MehendiPattern
-          variant="corner-tl"
-          color="white"
-          opacity={0.15}
-          className="w-[280px] h-[280px] pointer-events-none"
-          animate
-        />
-        <MehendiPattern
-          variant="corner-br"
-          color="white"
-          opacity={0.12}
-          className="w-[250px] h-[250px] pointer-events-none"
-          animate
-        />
+          {/* Background Vector Patterns (Non-Colliding, Pointer-Events-None) */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <MehendiPattern
+              variant="corner-tl"
+              color="white"
+              opacity={0.08}
+              className="w-36 h-36 -top-6 -left-6 absolute"
+            />
+            <MehendiPattern
+              variant="corner-br"
+              color="white"
+              opacity={0.08}
+              className="w-36 h-36 -bottom-6 -right-6 absolute"
+            />
+          </div>
 
-        <div className="relative z-10">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto mb-4 flex h-18 w-18 items-center justify-center rounded-[1.8rem] overflow-hidden bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/20 backdrop-blur-md relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent z-10 pointer-events-none" />
-            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
-          </motion.div>
+          <div className="relative z-10">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="mx-auto mb-3 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl overflow-hidden bg-white/10 shadow-medium ring-1 ring-white/20 backdrop-blur-md relative"
+            >
+              <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+            </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5 }}
-            className="font-display text-2xl font-bold text-white tracking-tight"
-            style={{ lineHeight: "1.15", textShadow: "0 2px 16px rgba(0,0,0,0.15)" }}
-          >
-            Banjara Bandhan
-          </motion.h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.4 }}
+              className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight"
+            >
+              Banjara Bandhan
+            </motion.h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.5 }}
-            className="mt-1 text-xs text-white/60 tracking-wide"
-          >
-            Powered by Supabase Auth ✨
-          </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.4 }}
+              className="mt-0.5 text-[11px] sm:text-xs text-white/70 tracking-wide"
+            >
+              Where traditions meet hearts ✨
+            </motion.p>
+          </div>
         </div>
-      </div>
 
       {/* ═══ Form Section ═══ */}
       <div className="flex-1 -mt-6 rounded-t-[2.5rem] bg-background px-6 pt-7 pb-12 relative z-10 flex flex-col justify-between">
@@ -655,6 +655,7 @@ const Login = () => {
         </motion.div>
       </div>
     </div>
+  </div>
   );
 };
 

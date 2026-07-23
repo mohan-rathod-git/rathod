@@ -36,7 +36,7 @@ const ProfileDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", id!).single();
+      const { data } = await supabase.from("profiles").select("*").eq("id", id!).maybeSingle();
       if (data) {
         // Hidden profile: non-owner gets a blocked view (RLS also enforces this server-side)
         const isOwner = user?.id === data.user_id;

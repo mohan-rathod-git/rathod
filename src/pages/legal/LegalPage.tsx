@@ -31,7 +31,7 @@ const termsSections = [
 const cookieSections = [
   { title: "Cookies & Tracking", content: "We use essential cookies for authentication and session management. Analytics cookies help us understand usage patterns. You can manage cookie preferences in your browser settings." },
   { title: "Data Retention", content: "Active account data is retained as long as your account exists. Deleted accounts are purged within 30 days. Chat messages are retained for 90 days after account deletion." },
-  { title: "Contact Us", content: "For privacy concerns, contact our Data Protection Officer at privacy@banjarabandhan.com. We respond to all inquiries within 72 hours." },
+  { title: "Contact Us", content: "For privacy concerns, contact our team at contactbanjarabandhan@gmail.com. We respond to all inquiries within 24-48 hours." },
 ];
 
 interface LegalSection {

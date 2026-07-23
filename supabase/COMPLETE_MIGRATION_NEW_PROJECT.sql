@@ -477,19 +477,24 @@ $$;
 
 -- 16. STORAGE BUCKET & POLICIES
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('chat-attachments', 'chat-attachments', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('verification-docs', 'verification-docs', false) ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "Users can upload own avatar" ON storage.objects;
 CREATE POLICY "Users can upload own avatar" ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+  WITH CHECK (bucket_id IN ('avatars', 'chat-attachments', 'verification-docs'));
 
-DROP POLICY IF EXISTS "Anyone can view avatars" ON storage.objects;
-CREATE POLICY "Anyone can view avatars" ON storage.objects FOR SELECT TO public USING (bucket_id = 'avatars');
+DROP POLICY IF EXISTS "Anyone can view public storage" ON storage.objects;
+CREATE POLICY "Anyone can view public storage" ON storage.objects FOR SELECT TO public
+  USING (bucket_id IN ('avatars', 'chat-attachments'));
 
-DROP POLICY IF EXISTS "Users can update own avatar" ON storage.objects;
-CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "Users can update own storage" ON storage.objects;
+CREATE POLICY "Users can update own storage" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id IN ('avatars', 'chat-attachments', 'verification-docs'));
 
-DROP POLICY IF EXISTS "Users can delete own avatar" ON storage.objects;
-CREATE POLICY "Users can delete own avatar" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+DROP POLICY IF EXISTS "Users can delete own storage" ON storage.objects;
+CREATE POLICY "Users can delete own storage" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id IN ('avatars', 'chat-attachments', 'verification-docs'));
 
 -- 17. REALTIME PUBLICATIONS
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles; EXCEPTION WHEN duplicate_object THEN NULL; END $$;

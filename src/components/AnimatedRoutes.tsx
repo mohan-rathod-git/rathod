@@ -27,6 +27,9 @@ const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("@/pages/auth/ResetPassword"));
 const NotificationPreferences = React.lazy(() => import("@/pages/NotificationPreferences"));
 const FAQSupport = React.lazy(() => import("@/pages/settings/FAQSupport"));
+const LanguageSettings = React.lazy(() => import("@/pages/settings/LanguageSettings"));
+const BlockedUsersSettings = React.lazy(() => import("@/pages/settings/BlockedUsersSettings"));
+const FeedbackPage = React.lazy(() => import("@/pages/FeedbackPage"));
 const LegalPage = React.lazy(() => import("@/pages/legal/LegalPage"));
 const DeleteAccount = React.lazy(() => import("@/pages/settings/DeleteAccount"));
 const VerifyProfile = React.lazy(() => import("@/pages/VerifyProfile"));
@@ -113,8 +116,16 @@ const AnimatedRoutes = () => {
         <Route path="/my-profile" element={<PageWrapper><ProtectedRoute><MyProfile /></ProtectedRoute></PageWrapper>} />
         <Route path="/edit-profile" element={<PageWrapper><ProtectedRoute><EditProfile /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings" element={<PageWrapper><ProtectedRoute><Settings /></ProtectedRoute></PageWrapper>} />
+        <Route path="/settings/language" element={<PageWrapper><ProtectedRoute><LanguageSettings /></ProtectedRoute></PageWrapper>} />
+        <Route path="/settings/blocked" element={<PageWrapper><ProtectedRoute><BlockedUsersSettings /></ProtectedRoute></PageWrapper>} />
+        <Route path="/feedback" element={<PageWrapper><ProtectedRoute><FeedbackPage /></ProtectedRoute></PageWrapper>} />
         <Route path="/notification-preferences" element={<PageWrapper><ProtectedRoute><NotificationPreferences /></ProtectedRoute></PageWrapper>} />
         <Route path="/legal" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/privacy" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/terms" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/refund" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/refunds" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/safety" element={<PageWrapper><LegalPage /></PageWrapper>} />
         <Route path="/settings/privacy-policy" element={<Navigate to="/legal#privacy" replace />} />
         <Route path="/settings/terms" element={<Navigate to="/legal#terms" replace />} />
         <Route path="/settings/faq" element={<PageWrapper><ProtectedRoute><FAQSupport /></ProtectedRoute></PageWrapper>} />

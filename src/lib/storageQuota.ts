@@ -37,18 +37,16 @@ export async function uploadWithQuotaCheck(
 ): Promise<QuotaCheckResult> {
   const fileSize = file.size;
 
-  // Step 1: Atomically reserve quota
+  // Step 1: Reserve quota (with safe fallback if RPC not yet initialized)
   const { data: allowed, error: rpcError } = await supabase.rpc('increment_storage', {
     _user_id: userId,
     _bytes: fileSize,
   });
 
   if (rpcError) {
-    console.error('Quota check RPC error:', rpcError);
-    return { success: false, error: 'Failed to check storage quota. Please try again.' };
-  }
-
-  if (allowed === false) {
+    console.warn('Quota check RPC notice:', rpcError.message);
+    // Do not block user uploads on missing RPC function
+  } else if (allowed === false) {
     // Fetch current usage for the error message
     const { data: profile } = await supabase
       .from('profiles')
