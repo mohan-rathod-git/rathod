@@ -6,10 +6,7 @@
 -- ────────────────────────────────────────────────────────────
 -- 1A. Extend app_role enum to include 'super_admin'
 -- ────────────────────────────────────────────────────────────
-DO $$ BEGIN
-  ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
 
 -- ────────────────────────────────────────────────────────────
 -- 1B. Admin audit log — immutable, append-only
