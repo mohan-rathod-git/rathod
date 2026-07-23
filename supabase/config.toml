@@ -10,6 +10,6 @@ template = "Your Banjara Bandhan OTP verification code is: {{ .Code }}"
 
 [auth.sms.twilio]
 enabled = true
-account_sid = "isGXR3PVqDqTphWLp9YU4sLYChKiSKjog4Mv"
-auth_token = "76be1e2db3d9d4a3428c0dacba81ebbb"
-sender_number = "+15107377366"
+account_sid = "env(TWILIO_ACCOUNT_SID)"
+auth_token = "env(TWILIO_AUTH_TOKEN)"
+sender_number = "env(TWILIO_PHONE_NUMBER)"
