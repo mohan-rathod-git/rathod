@@ -17,11 +17,11 @@ const BottomNav = () => {
   const activeIndex = tabs.findIndex((tab) => tab.path === location.pathname);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50">
-      {/* Glass background */}
-      <div className="bg-card/85 backdrop-blur-2xl border-t border-border/30 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.06)]">
-        <div className="mx-auto flex max-w-md items-center justify-around px-1 pb-[env(safe-area-inset-bottom)]">
-          {tabs.map((tab, index) => {
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
+      {/* Outer centering wrapper for desktop */}
+      <div className="w-full max-w-[480px] bg-card/90 backdrop-blur-2xl border-t border-border/30 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.1)]">
+        <div className="flex items-center justify-around px-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0px)' }}>
+          {tabs.map((tab) => {
             const isActive = location.pathname === tab.path;
             return (
               <motion.button
@@ -42,7 +42,6 @@ const BottomNav = () => {
                   />
                 )}
 
-                {/* Icon with scale animation */}
                 <motion.div
                   animate={isActive ? { scale: 1.1, y: -1 } : { scale: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 350, damping: 20 }}
@@ -54,7 +53,6 @@ const BottomNav = () => {
                   {tab.label}
                 </span>
 
-                {/* Subtle glow behind active icon */}
                 {isActive && (
                   <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/8 blur-md" />
                 )}

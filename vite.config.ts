@@ -1,8 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
+
+// lovable-tagger is dev-only — safely skip if not available (e.g. Vercel prod builds)
+let componentTagger: (() => any) | null = null;
+try {
+  componentTagger = require("lovable-tagger").componentTagger;
+} catch {
+  // not installed in production — safe to ignore
+}
 
 export default defineConfig(({ mode }) => ({
   server: {
@@ -14,7 +21,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
+    mode === "development" && componentTagger && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["placeholder.svg", "robots.txt"],
