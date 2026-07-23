@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Phone, ShieldCheck, RefreshCw } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Phone, ShieldCheck, RefreshCw, KeyRound } from "lucide-react";
 import { getPostAuthRoute } from "@/lib/profileUtils";
 import { ensureProfileRow } from "@/lib/profilePersistence";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,15 +47,22 @@ const Login = () => {
   const navigate = useNavigate();
 
   // Auth Mode: 'email' | 'phone'
-  const [authMode, setAuthMode] = useState<"email" | "phone">("email");
+  const [authMode, setAuthMode] = useState<"email" | "phone">("phone");
+  const [emailSubMode, setEmailSubMode] = useState<"password" | "otp">("password");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Phone / OTP states
+  // Mobile / Phone OTP states (using Supabase Auth)
   const [phone, setPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+
+  // Email OTP states (using Supabase Auth)
+  const [otpEmail, setOtpEmail] = useState("");
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+
   const [resendTimer, setResendTimer] = useState(0);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
@@ -63,7 +70,7 @@ const Login = () => {
     defaultValues: { email: "", password: "" },
   });
 
-  // Resend timer count down
+  // Resend timer countdown
   useEffect(() => {
     if (resendTimer <= 0) return;
     const interval = setInterval(() => {
@@ -87,8 +94,8 @@ const Login = () => {
     navigate(getPostAuthRoute(profile ?? ({ registration_step: 1 } as any)), { replace: true });
   };
 
-  // Email / Password Login
-  const onSubmit = async (values: LoginFormValues) => {
+  // 1. Email + Password Login via Supabase
+  const onSubmitEmailPassword = async (values: LoginFormValues) => {
     const { email, password } = values;
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -102,8 +109,57 @@ const Login = () => {
     }
   };
 
-  // Phone Step 1: Send OTP
-  const handleSendOtp = async (e: React.FormEvent) => {
+  // 2. Email OTP via Supabase (signInWithOtp)
+  const handleSendEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpEmail || !otpEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: otpEmail.trim(),
+    });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message || "Failed to send email OTP");
+      return;
+    }
+
+    setEmailOtpSent(true);
+    setResendTimer(60);
+    toast.success(`OTP code sent to ${otpEmail}! Check your inbox.`);
+  };
+
+  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailOtpCode || emailOtpCode.length < 6) {
+      toast.error("Please enter 6-digit OTP code");
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: otpEmail.trim(),
+      token: emailOtpCode.trim(),
+      type: "email",
+    });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message || "Invalid OTP code");
+      return;
+    }
+
+    if (data.user) {
+      await handlePostLogin(data.user);
+    }
+  };
+
+  // 3. Mobile Phone OTP via Supabase (signInWithOtp)
+  const handleSendPhoneOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = phone.trim();
     if (!cleanPhone || cleanPhone.length < 10) {
@@ -111,7 +167,7 @@ const Login = () => {
       return;
     }
 
-    // Format phone with +91 country code if missing
+    // Format phone with +91 country code
     const fullPhone = cleanPhone.startsWith("+") ? cleanPhone : `+91${cleanPhone.replace(/^0+/, "")}`;
 
     setLoading(true);
@@ -121,19 +177,18 @@ const Login = () => {
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || "Failed to send OTP code");
+      toast.error(error.message || "Failed to send OTP code via Supabase");
       return;
     }
 
-    setOtpSent(true);
+    setPhoneOtpSent(true);
     setResendTimer(60);
-    toast.success(`OTP code sent to ${fullPhone}!`);
+    toast.success(`Supabase OTP code sent to ${fullPhone}!`);
   };
 
-  // Phone Step 2: Verify OTP
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.length < 6) {
+    if (!phoneOtpCode || phoneOtpCode.length < 6) {
       toast.error("Please enter 6-digit OTP code");
       return;
     }
@@ -144,7 +199,7 @@ const Login = () => {
     setLoading(true);
     const { data, error } = await supabase.auth.verifyOtp({
       phone: fullPhone,
-      token: otpCode.trim(),
+      token: phoneOtpCode.trim(),
       type: "sms",
     });
     setLoading(false);
@@ -159,7 +214,7 @@ const Login = () => {
     }
   };
 
-  // Google OAuth Login
+  // 4. Google OAuth Login via Supabase
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -178,7 +233,6 @@ const Login = () => {
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       {/* ═══ Premium Gradient Hero with Mehendi ═══ */}
       <div className="relative px-6 pt-14 pb-16 text-center overflow-hidden">
-        {/* Animated gradient background */}
         <div
           className="absolute inset-0 animate-gradient-shift"
           style={{
@@ -187,10 +241,8 @@ const Login = () => {
           }}
         />
 
-        {/* Glassmorphic overlay */}
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
 
-        {/* ── Mehendi Corner Patterns ── */}
         <MehendiPattern
           variant="corner-tl"
           color="white"
@@ -206,32 +258,6 @@ const Login = () => {
           animate
         />
 
-        {/* Decorative concentric rings */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          {[200, 160, 120, 80].map((size, i) => (
-            <div
-              key={size}
-              className="absolute rounded-full border"
-              style={{
-                width: size,
-                height: size,
-                borderColor: `rgba(255,255,255,${0.04 + i * 0.02})`,
-                animation: `spin-slow ${40 + i * 12}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Floating gold sparkles */}
-        <motion.div
-          className="absolute top-8 right-12"
-          animate={{ y: [-3, 3, -3], rotate: [0, 15, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Sparkles className="h-5 w-5 text-amber-300/40" />
-        </motion.div>
-
-        {/* ── Brand Content ── */}
         <div className="relative z-10">
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
@@ -246,7 +272,7 @@ const Login = () => {
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ delay: 0.15, duration: 0.5 }}
             className="font-display text-2xl font-bold text-white tracking-tight"
             style={{ lineHeight: "1.15", textShadow: "0 2px 16px rgba(0,0,0,0.15)" }}
           >
@@ -259,33 +285,21 @@ const Login = () => {
             transition={{ delay: 0.25, duration: 0.5 }}
             className="mt-1 text-xs text-white/60 tracking-wide"
           >
-            Where traditions meet hearts ✨
+            Powered by Supabase Auth ✨
           </motion.p>
         </div>
       </div>
 
-      {/* ═══ Form Section with Glass Card ═══ */}
+      {/* ═══ Form Section ═══ */}
       <div className="flex-1 -mt-6 rounded-t-[2.5rem] bg-background px-6 pt-7 pb-12 relative z-10 flex flex-col justify-between">
         <div>
-          {/* Top Handle */}
           <div className="w-12 h-1 rounded-full bg-primary/20 mx-auto mb-5" />
 
           {/* Mode Switcher Tabs */}
-          <div className="flex rounded-2xl bg-muted p-1 mb-6 border border-border/50">
+          <div className="flex rounded-2xl bg-muted p-1 mb-5 border border-border/50">
             <button
               type="button"
-              onClick={() => { setAuthMode("email"); setOtpSent(false); }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                authMode === "email"
-                  ? "bg-card text-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Mail className="h-3.5 w-3.5" /> Email Login
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAuthMode("phone"); setOtpSent(false); }}
+              onClick={() => { setAuthMode("phone"); setPhoneOtpSent(false); }}
               className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 authMode === "phone"
                   ? "bg-card text-foreground shadow-soft"
@@ -293,6 +307,17 @@ const Login = () => {
               }`}
             >
               <Phone className="h-3.5 w-3.5" /> Mobile OTP
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode("email"); setEmailOtpSent(false); }}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                authMode === "email"
+                  ? "bg-card text-foreground shadow-soft"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Mail className="h-3.5 w-3.5" /> Email Login
             </button>
           </div>
 
@@ -314,113 +339,27 @@ const Login = () => {
             </Button>
           </motion.div>
 
-          <div className="relative flex items-center justify-center mb-6">
+          <div className="relative flex items-center justify-center mb-5">
             <div className="border-t border-border/60 w-full" />
             <span className="bg-background px-3 text-[10px] uppercase font-bold text-muted-foreground tracking-widest whitespace-nowrap">
-              or sign in with {authMode === "email" ? "email" : "mobile"}
+              or sign in with {authMode === "phone" ? "Supabase Mobile OTP" : "Email"}
             </span>
             <div className="border-t border-border/60 w-full" />
           </div>
 
           <AnimatePresence mode="wait">
-            {/* Email / Password Form */}
-            {authMode === "email" && (
+            {/* Mobile Phone OTP Form (Supabase Auth) */}
+            {authMode === "phone" && (
               <motion.form
-                key="email-form"
-                onSubmit={handleSubmit(onSubmit)}
+                key="phone-form"
+                onSubmit={phoneOtpSent ? handleVerifyPhoneOtp : handleSendPhoneOtp}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
                 transition={{ duration: 0.2 }}
                 className="space-y-4"
               >
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
-                    {t("auth.email")}
-                  </label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="you@email.com"
-                      {...register("email")}
-                      className={`pl-11 h-12 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all ${
-                        errors.email ? "border-destructive focus:border-destructive" : "focus:border-primary/30"
-                      }`}
-                    />
-                  </div>
-                  {errors.email && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.email.message}</p>}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
-                    {t("auth.password")}
-                  </label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      id="login-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      {...register("password")}
-                      className={`pl-11 pr-11 h-12 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all ${
-                        errors.password ? "border-destructive focus:border-destructive" : "focus:border-primary/30"
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground active:scale-90 transition-all"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.password.message}</p>}
-                </div>
-
-                <motion.div whileTap={{ scale: 0.98 }} className="pt-2">
-                  <Button
-                    id="login-submit"
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-13 rounded-2xl text-sm font-bold gradient-saffron border-0 text-white shadow-glow-primary hover:shadow-premium transition-all duration-300 relative overflow-hidden group"
-                  >
-                    {loading ? (
-                      <span className="flex items-center gap-2 relative z-10">
-                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        {t("common.loading")}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2 relative z-10">
-                        {t("auth.signIn")} <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
-                    )}
-                  </Button>
-                </motion.div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="w-full text-center text-xs font-medium text-primary hover:underline underline-offset-4 transition-all pt-1"
-                >
-                  {t("auth.forgotPassword")}
-                </button>
-              </motion.form>
-            )}
-
-            {/* Mobile Number / OTP Form */}
-            {authMode === "phone" && (
-              <motion.form
-                key="phone-form"
-                onSubmit={otpSent ? handleVerifyOtp : handleSendOtp}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4"
-              >
-                {!otpSent ? (
+                {!phoneOtpSent ? (
                   /* Step 1: Mobile Number Entry */
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
@@ -442,7 +381,7 @@ const Login = () => {
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      We will send a 6-digit OTP code to verify your mobile number.
+                      Supabase Auth will send a 6-digit OTP code to your mobile number.
                     </p>
                   </div>
                 ) : (
@@ -450,11 +389,11 @@ const Login = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
-                        Enter OTP Code
+                        Enter Supabase OTP Code
                       </label>
                       <button
                         type="button"
-                        onClick={() => setOtpSent(false)}
+                        onClick={() => setPhoneOtpSent(false)}
                         className="text-[11px] font-bold text-primary hover:underline"
                       >
                         Change Number
@@ -466,8 +405,8 @@ const Login = () => {
                         type="text"
                         maxLength={6}
                         placeholder="123456"
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                        value={phoneOtpCode}
+                        onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, ""))}
                         className="pl-11 h-12 rounded-2xl border-emerald-500/40 bg-card shadow-soft text-center font-bold text-lg tracking-[0.5em] focus:border-emerald-500"
                       />
                     </div>
@@ -481,7 +420,7 @@ const Login = () => {
                       ) : (
                         <button
                           type="button"
-                          onClick={handleSendOtp}
+                          onClick={handleSendPhoneOtp}
                           className="font-bold text-primary text-[11px] hover:underline flex items-center gap-1"
                         >
                           <RefreshCw className="h-3 w-3" /> Resend OTP
@@ -500,11 +439,11 @@ const Login = () => {
                     {loading ? (
                       <span className="flex items-center gap-2 relative z-10">
                         <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        {otpSent ? "Verifying..." : "Sending OTP..."}
+                        {phoneOtpSent ? "Verifying..." : "Requesting OTP..."}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2 relative z-10">
-                        {otpSent ? "Verify & Login" : "Send OTP Code"}
+                        {phoneOtpSent ? "Verify & Login" : "Request Supabase OTP"}
                         <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                       </span>
                     )}
@@ -512,17 +451,189 @@ const Login = () => {
                 </motion.div>
               </motion.form>
             )}
+
+            {/* Email Form (Password or OTP) */}
+            {authMode === "email" && (
+              <motion.div
+                key="email-form-container"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+                {/* Email sub-mode switcher */}
+                <div className="flex justify-end gap-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setEmailSubMode(emailSubMode === "password" ? "otp" : "password")}
+                    className="text-primary font-bold hover:underline flex items-center gap-1"
+                  >
+                    {emailSubMode === "password" ? (
+                      <> <KeyRound className="h-3 w-3" /> Use Email OTP instead </>
+                    ) : (
+                      <> <Lock className="h-3 w-3" /> Use Password instead </>
+                    )}
+                  </button>
+                </div>
+
+                {emailSubMode === "password" ? (
+                  <form onSubmit={handleSubmit(onSubmitEmailPassword)} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
+                        {t("auth.email")}
+                      </label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input
+                          id="login-email"
+                          type="email"
+                          placeholder="you@email.com"
+                          {...register("email")}
+                          className={`pl-11 h-12 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all ${
+                            errors.email ? "border-destructive focus:border-destructive" : "focus:border-primary/30"
+                          }`}
+                        />
+                      </div>
+                      {errors.email && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.email.message}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
+                        {t("auth.password")}
+                      </label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <Input
+                          id="login-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          {...register("password")}
+                          className={`pl-11 pr-11 h-12 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all ${
+                            errors.password ? "border-destructive focus:border-destructive" : "focus:border-primary/30"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground active:scale-90 transition-all"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      {errors.password && <p className="text-xs text-destructive mt-1 ml-1 font-medium">{errors.password.message}</p>}
+                    </div>
+
+                    <motion.div whileTap={{ scale: 0.98 }} className="pt-2">
+                      <Button
+                        id="login-submit"
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-13 rounded-2xl text-sm font-bold gradient-saffron border-0 text-white shadow-glow-primary hover:shadow-premium transition-all duration-300 relative overflow-hidden group"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2 relative z-10">
+                            <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                            {t("common.loading")}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2 relative z-10">
+                            {t("auth.signIn")} <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        )}
+                      </Button>
+                    </motion.div>
+
+                    <button
+                      type="button"
+                      onClick={() => navigate("/forgot-password")}
+                      className="w-full text-center text-xs font-medium text-primary hover:underline underline-offset-4 transition-all pt-1"
+                    >
+                      {t("auth.forgotPassword")}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={emailOtpSent ? handleVerifyEmailOtp : handleSendEmailOtp} className="space-y-4">
+                    {!emailOtpSent ? (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
+                          Email Address
+                        </label>
+                        <div className="relative group">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            type="email"
+                            placeholder="you@email.com"
+                            value={otpEmail}
+                            onChange={(e) => setOtpEmail(e.target.value)}
+                            className="pl-11 h-12 rounded-2xl border-border bg-card shadow-soft focus:shadow-medium transition-all"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Supabase will send a 6-digit OTP login code to your email.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
+                            Enter Email OTP
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setEmailOtpSent(false)}
+                            className="text-[11px] font-bold text-primary hover:underline"
+                          >
+                            Change Email
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+                          <Input
+                            type="text"
+                            maxLength={6}
+                            placeholder="123456"
+                            value={emailOtpCode}
+                            onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, ""))}
+                            className="pl-11 h-12 rounded-2xl border-emerald-500/40 bg-card shadow-soft text-center font-bold text-lg tracking-[0.5em] focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <motion.div whileTap={{ scale: 0.98 }} className="pt-2">
+                      <Button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full h-13 rounded-2xl text-sm font-bold gradient-saffron border-0 text-white shadow-glow-primary hover:shadow-premium transition-all duration-300 relative overflow-hidden group"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2 relative z-10">
+                            <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                            {emailOtpSent ? "Verifying..." : "Sending..."}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2 relative z-10">
+                            {emailOtpSent ? "Verify & Login" : "Send Email OTP Code"}
+                            <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </form>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 
-        {/* ── Register CTA with decorative border ── */}
+        {/* ── Register CTA ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.5 }}
           className="mt-8 text-center"
         >
-          {/* Decorative mehendi divider */}
           <div className="mx-auto max-w-[180px] mb-4 opacity-40">
             <MehendiPattern variant="border" color="hsl(var(--primary))" opacity={0.3} className="h-4" />
           </div>
