@@ -11,8 +11,10 @@ export function useRealtimeProfiles() {
       .from("profiles")
       .select("id, user_id, full_name, gender, date_of_birth, photo_url, community, gotra, city_village, state, occupation, education, annual_income, marital_status, mother_tongue, height, about, rashi, manglik, is_premium, is_verified, is_online")
       .gte("registration_step", 2)
+      .eq("is_hidden" as any, false)
       .order("created_at", { ascending: false })
       .limit(50);
+
     setProfiles(data || []);
     setLoading(false);
   }, []);

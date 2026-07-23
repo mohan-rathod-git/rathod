@@ -1,7 +1,8 @@
 import React, { useEffect, Suspense } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Splash from "@/pages/Splash";
 import Index from "@/pages/Index";
 import Login from "@/pages/auth/Login";
@@ -26,12 +27,22 @@ const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("@/pages/auth/ResetPassword"));
 const NotificationPreferences = React.lazy(() => import("@/pages/NotificationPreferences"));
 const FAQSupport = React.lazy(() => import("@/pages/settings/FAQSupport"));
-const PrivacyPolicy = React.lazy(() => import("@/pages/settings/PrivacyPolicy"));
-const TermsOfService = React.lazy(() => import("@/pages/settings/TermsOfService"));
+const LegalPage = React.lazy(() => import("@/pages/legal/LegalPage"));
 const DeleteAccount = React.lazy(() => import("@/pages/settings/DeleteAccount"));
 const VerifyProfile = React.lazy(() => import("@/pages/VerifyProfile"));
 const AdminVerification = React.lazy(() => import("@/pages/admin/AdminVerification"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
+
+// Admin pages — lazy loaded, behind AdminRoute guard
+const AdminLayout = React.lazy(() => import("@/pages/admin/AdminLayout"));
+const AdminDashboard = React.lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminUsers = React.lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminReports = React.lazy(() => import("@/pages/admin/AdminReports"));
+const AdminBroadcasts = React.lazy(() => import("@/pages/admin/AdminBroadcasts"));
+const AdminAnalytics = React.lazy(() => import("@/pages/admin/AdminAnalytics"));
+const AdminAuditLog = React.lazy(() => import("@/pages/admin/AdminAuditLog"));
+const AdminLandingContent = React.lazy(() => import("@/pages/admin/AdminLandingContent"));
+
 
 const pageVariants = {
   initial: { opacity: 0, y: 10 },
@@ -66,6 +77,7 @@ const getRouteKey = (pathname: string): string => {
   // For dynamic segments, use the base path
   if (pathname.startsWith("/chat/")) return "/chat";
   if (pathname.startsWith("/profile/")) return "/profile";
+  if (pathname.startsWith("/admin")) return "/admin";
   return pathname;
 };
 
@@ -75,7 +87,8 @@ const AnimatedRoutes = () => {
 
   useEffect(() => {
     const splashShown = sessionStorage.getItem("splashShown");
-    if (!splashShown && location.pathname !== "/splash") {
+    // Skip splash for admin routes
+    if (!splashShown && location.pathname !== "/splash" && !location.pathname.startsWith("/admin")) {
       sessionStorage.setItem("splashShown", "true");
       navigate("/splash", { replace: true });
     }
@@ -101,16 +114,27 @@ const AnimatedRoutes = () => {
         <Route path="/edit-profile" element={<PageWrapper><ProtectedRoute><EditProfile /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings" element={<PageWrapper><ProtectedRoute><Settings /></ProtectedRoute></PageWrapper>} />
         <Route path="/notification-preferences" element={<PageWrapper><ProtectedRoute><NotificationPreferences /></ProtectedRoute></PageWrapper>} />
+        <Route path="/legal" element={<PageWrapper><LegalPage /></PageWrapper>} />
+        <Route path="/settings/privacy-policy" element={<Navigate to="/legal#privacy" replace />} />
+        <Route path="/settings/terms" element={<Navigate to="/legal#terms" replace />} />
         <Route path="/settings/faq" element={<PageWrapper><ProtectedRoute><FAQSupport /></ProtectedRoute></PageWrapper>} />
-        <Route path="/settings/privacy-policy" element={<PageWrapper><ProtectedRoute><PrivacyPolicy /></ProtectedRoute></PageWrapper>} />
-        <Route path="/settings/terms" element={<PageWrapper><ProtectedRoute><TermsOfService /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings/delete-account" element={<PageWrapper><ProtectedRoute><DeleteAccount /></ProtectedRoute></PageWrapper>} />
         <Route path="/subscription" element={<PageWrapper><ProtectedRoute><Subscription /></ProtectedRoute></PageWrapper>} />
         <Route path="/horoscope" element={<PageWrapper><ProtectedRoute><HoroscopeMatch /></ProtectedRoute></PageWrapper>} />
         <Route path="/success-stories" element={<PageWrapper><ProtectedRoute><SuccessStories /></ProtectedRoute></PageWrapper>} />
         <Route path="/about" element={<PageWrapper><ProtectedRoute><AboutUs /></ProtectedRoute></PageWrapper>} />
         <Route path="/verify-profile" element={<PageWrapper><ProtectedRoute><VerifyProfile /></ProtectedRoute></PageWrapper>} />
-        <Route path="/admin/verification" element={<PageWrapper><ProtectedRoute><AdminVerification /></ProtectedRoute></PageWrapper>} />
+        {/* Admin dashboard — nested routes behind AdminRoute guard */}
+        <Route path="/admin" element={<PageWrapper><AdminRoute><AdminLayout /></AdminRoute></PageWrapper>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="verification" element={<AdminVerification />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="broadcasts" element={<AdminRoute requiredRole="admin"><AdminBroadcasts /></AdminRoute>} />
+          <Route path="analytics" element={<AdminRoute requiredRole="admin"><AdminAnalytics /></AdminRoute>} />
+          <Route path="audit-log" element={<AdminRoute requiredRole="admin"><AdminAuditLog /></AdminRoute>} />
+          <Route path="landing" element={<AdminRoute requiredRole="admin"><AdminLandingContent /></AdminRoute>} />
+        </Route>
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>

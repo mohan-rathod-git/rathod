@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Camera, Check, Loader2, Sparkles } from "lucide-react";
 import { calculateProfileCompletion } from "@/lib/profileUtils";
 import { ensureProfileRow } from "@/lib/profilePersistence";
+import CropModal from "@/components/CropModal";
+import { uploadWithQuotaCheck } from "@/lib/storageQuota";
 
 const rashis = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const manglikOptions = ["Yes", "No", "Partially"];
@@ -19,6 +21,7 @@ const RegisterStep3 = () => {
   const [uploading, setUploading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [selectedCropImage, setSelectedCropImage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     rashi: "", nakshatra: "", manglik: "", birthTime: "", birthPlace: "",
@@ -35,23 +38,36 @@ const RegisterStep3 = () => {
     }
   }, [authLoading, user, navigate]);
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+    if (file.size > 15 * 1024 * 1024) { toast.error("File size must be under 15MB"); return; }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedCropImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCroppedPhotoUpload = async (croppedBlob: Blob) => {
+    if (!user) return;
+    setSelectedCropImage(null);
     setUploading(true);
+
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/avatar.${ext}`;
-      const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-      if (error) {
-        console.error("Upload error:", error);
-        toast.error("Upload failed. Please try again.");
+      const path = `${user.id}/avatar.jpg`;
+      const croppedFile = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+
+      const result = await uploadWithQuotaCheck(croppedFile, user.id, path, "avatars", { upsert: true });
+
+      if (!result.success) {
+        toast.error(result.error || "Upload failed. Please try again.");
         setUploading(false);
         return;
       }
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-      setPhotoUrl(publicUrl);
+      setPhotoUrl(result.publicUrl || null);
       toast.success("Photo uploaded!");
     } catch (err) {
       console.error("Upload error:", err);
@@ -154,7 +170,15 @@ const RegisterStep3 = () => {
         {/* Photo upload */}
         <div className="animate-fade-up">
           <label className="text-xs font-medium text-muted-foreground mb-3 block">Profile Photo</label>
-          <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+          {selectedCropImage && (
+            <CropModal
+              imageUrl={selectedCropImage}
+              onConfirm={handleCroppedPhotoUpload}
+              onCancel={() => setSelectedCropImage(null)}
+              aspectRatio={1}
+            />
+          )}
           <button type="button" onClick={() => fileRef.current?.click()}
             className="group relative flex h-28 w-28 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border bg-card text-muted-foreground overflow-hidden active:scale-95 transition-all shadow-soft hover:shadow-medium hover:border-primary/50">
             {uploading ? (

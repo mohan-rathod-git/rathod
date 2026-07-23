@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useState } from "react";
 import type { Profile } from "@/types";
+import { logEngagementEvent } from "@/lib/engagementLogger";
 
 interface PremiumProfileCardProps {
   profile: Profile;
@@ -40,6 +41,7 @@ const PremiumProfileCard = ({ profile, index = 0, variant = "carousel" }: Premiu
     }
     setLiked(true);
     toast.success("Interest sent! 💕");
+    logEngagementEvent(user.id, profile.userId, 'interest_sent', { source: `card_${variant}` });
   };
 
   if (variant === "list") {
@@ -48,7 +50,10 @@ const PremiumProfileCard = ({ profile, index = 0, variant = "carousel" }: Premiu
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.05, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        onClick={() => navigate(`/profile/${profile.id}`)}
+        onClick={() => {
+          logEngagementEvent(user?.id, profile.userId, 'profile_click', { source: 'list_card', position: index });
+          navigate(`/profile/${profile.id}`);
+        }}
         className="flex items-center gap-4 rounded-3xl bg-card p-3.5 shadow-soft border border-border/30 w-full text-left active:scale-[0.98] hover:shadow-elevated transition-all duration-300 group"
       >
         <div className="relative">
@@ -105,7 +110,10 @@ const PremiumProfileCard = ({ profile, index = 0, variant = "carousel" }: Premiu
       initial={{ opacity: 0, y: 24, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      onClick={() => navigate(`/profile/${profile.id}`)}
+      onClick={() => {
+        logEngagementEvent(user?.id, profile.userId, 'profile_click', { source: `${variant}_card`, position: index });
+        navigate(`/profile/${profile.id}`);
+      }}
       className={`group relative overflow-hidden rounded-3xl bg-card shadow-soft hover:shadow-elevated text-left active:scale-[0.96] transition-all duration-300 ${isCarousel ? "w-[170px] flex-shrink-0" : "w-full"}`}
     >
       <div className="relative aspect-[3/4] overflow-hidden">

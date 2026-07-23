@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRealtimeMessages } from "@/hooks/useRealtime";
-import { ArrowLeft, Send, Loader2, Phone, Video, CheckCheck, Check } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Phone, Video, CheckCheck, Check, UserPlus, UserCheck, ShieldAlert, Lock } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import CallScreen from "@/components/chat/CallScreen";
@@ -11,6 +11,10 @@ import { useGoBack } from "@/hooks/useGoBack";
 import EmojiPicker from "@/components/chat/EmojiPicker";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
+import { moderateText } from "@/lib/moderation";
+import { useMatchStatus } from "@/hooks/useMatchStatus";
+import { useFriendStatus } from "@/hooks/useFriendStatus";
+import { toast } from "sonner";
 
 const Chat = () => {
   const { partnerId } = useParams<{ partnerId: string }>();
@@ -19,6 +23,9 @@ const Chat = () => {
   const { user } = useAuth();
   const { messages, loading } = useRealtimeMessages(partnerId);
   const { localStream, remoteStream, callStatus, callType, startCall, acceptCall, rejectCall, endCall, isCallReady } = useWebRTC(user?.id, partnerId);
+  const matchStatus = useMatchStatus(partnerId);
+  const friendStatus = useFriendStatus(partnerId);
+
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [partner, setPartner] = useState<any>(null);
@@ -93,14 +100,37 @@ const Chat = () => {
     }
   };
 
+  const handleCall = (type: 'audio' | 'video') => {
+    if (!friendStatus.isFriends) {
+      toast.error("Voice & Video calls are locked! Add as Friend first 🤝", {
+        action: friendStatus.status === 'none' ? {
+          label: "Add Friend",
+          onClick: () => friendStatus.sendFriendRequest(),
+        } : undefined,
+      });
+      return;
+    }
+    startCall(type);
+  };
+
   const handleSend = async () => {
     if (!text.trim() || !user || !partnerId) return;
+    
+    if (matchStatus.state !== 'matched') {
+      toast.error("Messaging requires mutual match! Send an interest first.");
+      return;
+    }
+
+    // Moderation check
+    const modResult = moderateText(text.trim());
+    const contentToSend = modResult.sanitizedText;
+
     setSending(true);
     sendTypingStatus(false);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
     setShowEmoji(false);
     await supabase.from("messages").insert({
-      sender_id: user.id, receiver_id: partnerId, content: text.trim(),
+      sender_id: user.id, receiver_id: partnerId, content: contentToSend,
     });
     setText("");
     setSending(false);
@@ -129,23 +159,73 @@ const Chat = () => {
             <p className="text-[10px] text-emerald-500 font-semibold">Online now</p>
           ) : null}
         </div>
+
+        {/* Friend status / request button in header */}
+        {friendStatus.status === 'none' && (
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => friendStatus.sendFriendRequest()}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl gradient-saffron text-white text-[10px] font-bold shadow-soft"
+            title="Add as Friend to unlock Voice/Video Calls"
+          >
+            <UserPlus className="h-3 w-3" /> Add Friend
+          </motion.button>
+        )}
+        {friendStatus.status === 'pending_sent' && (
+          <span className="text-[10px] text-muted-foreground font-semibold px-2 py-1 bg-muted rounded-lg">
+            Request Sent
+          </span>
+        )}
+
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => startCall('video')}
+          onClick={() => handleCall('video')}
           disabled={!isCallReady}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50 text-foreground hover:bg-primary/10 hover:text-primary"
+          className={`flex h-10 w-10 items-center justify-center rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
+            friendStatus.isFriends ? 'bg-muted text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/50 text-muted-foreground/60'
+          }`}
+          title={friendStatus.isFriends ? "Video Call" : "Locked (Friend tier required)"}
         >
-          <Video className="h-4 w-4" />
+          {friendStatus.isFriends ? <Video className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
-          onClick={() => startCall('audio')}
+          onClick={() => handleCall('audio')}
           disabled={!isCallReady}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform disabled:opacity-50 text-foreground hover:bg-primary/10 hover:text-primary"
+          className={`flex h-10 w-10 items-center justify-center rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
+            friendStatus.isFriends ? 'bg-muted text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/50 text-muted-foreground/60'
+          }`}
+          title={friendStatus.isFriends ? "Voice Call" : "Locked (Friend tier required)"}
         >
-          <Phone className="h-4 w-4" />
+          {friendStatus.isFriends ? <Phone className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
         </motion.button>
       </div>
+
+      {/* Friend request banner for pending_received */}
+      {friendStatus.status === 'pending_received' && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-4 w-4 text-primary" />
+            <span className="font-medium text-foreground">
+              {partner?.full_name || 'User'} sent you a friend request!
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => friendStatus.acceptFriendRequest()}
+              className="px-3 py-1 rounded-lg gradient-saffron text-white font-bold text-[10px] shadow-soft"
+            >
+              Accept
+            </button>
+            <button
+              onClick={() => friendStatus.declineFriendRequest()}
+              className="px-2.5 py-1 rounded-lg bg-card text-muted-foreground font-semibold text-[10px]"
+            >
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

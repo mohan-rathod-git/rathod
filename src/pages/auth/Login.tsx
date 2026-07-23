@@ -12,6 +12,7 @@ import MehendiPattern from "@/components/graphics/MehendiPattern";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslation } from "react-i18next";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -21,6 +22,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -69,6 +71,8 @@ const Login = () => {
 
         {/* Glassmorphic overlay */}
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
+
+
 
         {/* ── Mehendi Corner Patterns ── */}
         <MehendiPattern
@@ -171,8 +175,8 @@ const Login = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <h2 className="font-heading text-2xl font-bold text-foreground">Welcome back</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to continue your journey</p>
+          <h2 className="font-heading text-2xl font-bold text-foreground">{t("auth.welcomeBack")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("auth.loginSubtitle")}</p>
         </motion.div>
 
         <motion.form
@@ -183,7 +187,7 @@ const Login = () => {
           className="mt-8 space-y-5"
         >
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">Email</label>
+            <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">{t("auth.email")}</label>
             <div className="relative group">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
@@ -197,7 +201,7 @@ const Login = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">Password</label>
+            <label className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">{t("auth.password")}</label>
             <div className="relative group">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
@@ -228,11 +232,11 @@ const Login = () => {
               {loading ? (
                 <span className="flex items-center gap-2 relative z-10">
                   <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Signing in...
+                  {t("common.loading")}
                 </span>
               ) : (
                 <span className="flex items-center gap-2 relative z-10">
-                  Sign In <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                  {t("auth.signIn")} <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </span>
               )}
             </Button>
@@ -243,7 +247,7 @@ const Login = () => {
             onClick={() => navigate("/forgot-password")}
             className="w-full text-center text-sm font-medium text-primary hover:underline underline-offset-4 transition-all"
           >
-            Forgot password?
+            {t("auth.forgotPassword")}
           </button>
         </motion.form>
 
@@ -260,13 +264,13 @@ const Login = () => {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            New to Banjara Bandhan?{" "}
+            {t("auth.noAccount")}{" "}
             <button
               id="goto-register"
               onClick={() => navigate("/register")}
               className="font-bold text-primary hover:underline underline-offset-4 transition-all"
             >
-              Create Account
+              {t("auth.createAccount")}
             </button>
           </p>
         </motion.div>

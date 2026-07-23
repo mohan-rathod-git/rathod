@@ -1,64 +1,152 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { dbProfileToDisplay } from "@/lib/profileUtils";
+import { applyPrivacyFilter, getViewerRelationship, canView } from "@/lib/privacyUtils";
+import type { PrivacyMode } from "@/lib/privacyUtils";
+import { useMatchStatus } from "@/hooks/useMatchStatus";
+import { logEngagementEvent } from "@/lib/engagementLogger";
 import { toast } from "sonner";
-import { ArrowLeft, Share2, Heart, MessageCircle, Shield, Crown, MapPin, Briefcase, GraduationCap, Ruler, Users, Star, Ban, Flag } from "lucide-react";
+import { ArrowLeft, Share2, Heart, MessageCircle, Shield, Crown, MapPin, Briefcase, GraduationCap, Ruler, Users, Star, Ban, Flag, Lock, UserX } from "lucide-react";
 import ProfilePhotoGallery from "@/components/profile/ProfilePhotoGallery";
 import { motion } from "framer-motion";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
 import ShareModal from "@/components/ShareModal";
 import { useGoBack } from "@/hooks/useGoBack";
+import GotraWarningBanner from "@/components/GotraWarningBanner";
+import { blockUser, reportUser, ReportReason, REPORT_REASONS } from "@/lib/blockReport";
 
 const ProfileDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const goBack = useGoBack("/");
-  const { user } = useAuth();
+  const { user, profile: myProfile } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [rawProfile, setRawProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [alreadySent, setAlreadySent] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const viewStartRef = useRef<number>(Date.now());
+
+  // Use the centralized match status hook
+  const matchStatus = useMatchStatus(rawProfile?.user_id);
+  const isMatched = matchStatus.state === 'matched';
+  const interestSent = matchStatus.state === 'interest_sent';
+  const interestReceived = matchStatus.state === 'interest_received';
 
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from("profiles").select("*").eq("id", id!).single();
       if (data) {
-        const galleryPhotos = Array.from(new Set([data.photo_url, ...(data.additional_photos || [])].filter(Boolean)));
+        // Hidden profile: non-owner gets a blocked view (RLS also enforces this server-side)
+        const isOwner = user?.id === data.user_id;
+        if ((data as any).is_hidden && !isOwner) {
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setRawProfile(data);
+
+        // Determine viewer relationship and apply privacy filter
+        const relationship = getViewerRelationship(
+          user?.id,
+          data.user_id,
+          false, // will be updated once matchStatus loads
+          myProfile?.is_verified ?? false
+        );
+        const privacyMode = (data.privacy_mode as PrivacyMode) || 'public';
+        const filtered = applyPrivacyFilter(data, relationship, privacyMode);
+
+        const galleryPhotos = Array.from(
+          new Set([filtered.photo_url, ...(filtered.additional_photos || [])].filter(Boolean))
+        );
         setProfile({
-          ...dbProfileToDisplay(data),
-          galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : [data.photo_url || "/placeholder.svg"],
+          ...dbProfileToDisplay(filtered),
+          galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : [filtered.photo_url || "/placeholder.svg"],
+          _photo_blurred: filtered._photo_blurred,
+          privacyMode,
         });
+
+        // Log profile view event
+        logEngagementEvent(user?.id, data.user_id, 'view', { source: 'profile_detail' });
       }
       setLoading(false);
     };
     load();
-  }, [id]);
+    viewStartRef.current = Date.now();
+  }, [id, user?.id, myProfile?.is_verified]);
 
+  // Re-apply privacy filter when match status changes
   useEffect(() => {
-    if (!user || !profile) return;
-    supabase.from("interests").select("id").eq("sender_id", user.id).eq("receiver_id", profile.userId)
-      .then(({ data }) => { if (data && data.length > 0) setAlreadySent(true); });
-  }, [user, profile]);
+    if (!rawProfile || matchStatus.loading) return;
+    const relationship = getViewerRelationship(
+      user?.id,
+      rawProfile.user_id,
+      isMatched,
+      myProfile?.is_verified ?? false
+    );
+    const privacyMode = (rawProfile.privacy_mode as PrivacyMode) || 'public';
+    const filtered = applyPrivacyFilter(rawProfile, relationship, privacyMode);
+    const galleryPhotos = Array.from(
+      new Set([filtered.photo_url, ...(filtered.additional_photos || [])].filter(Boolean))
+    );
+    setProfile((prev: any) => prev ? {
+      ...dbProfileToDisplay(filtered),
+      galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : [filtered.photo_url || "/placeholder.svg"],
+      _photo_blurred: filtered._photo_blurred,
+      privacyMode,
+    } : prev);
+  }, [isMatched, matchStatus.loading, rawProfile, user?.id, myProfile?.is_verified]);
+
+  // Log long view (>10 seconds)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (rawProfile) {
+        logEngagementEvent(user?.id, rawProfile.user_id, 'view_long', { source: 'profile_detail', duration_ms: 10000 });
+      }
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [rawProfile, user?.id]);
 
   const handleSendInterest = async () => {
-    if (!user || !profile) return;
-    setSending(true);
-    const { error } = await supabase.from("interests").insert({ sender_id: user.id, receiver_id: profile.userId });
-    setSending(false);
-    if (error) {
-      if (error.code === "23505") {
-        setAlreadySent(true);
-        toast("Interest already sent");
-      } else {
-        toast.error("Failed to send interest");
-      }
-      return;
+    if (!user || !rawProfile) return;
+    const success = await matchStatus.sendInterest();
+    if (success) {
+      toast.success("Interest sent! 💫");
+      logEngagementEvent(user.id, rawProfile.user_id, 'interest_sent', { source: 'profile_detail' });
+    } else {
+      toast.error("Failed to send interest");
     }
-    setAlreadySent(true);
-    toast.success("Interest sent! 💫");
+  };
+
+  const handleAcceptInterest = async () => {
+    const success = await matchStatus.acceptInterest();
+    if (success) {
+      toast.success("Interest accepted! You're now matched! 🎉");
+      logEngagementEvent(user!.id, rawProfile.user_id, 'accept', { source: 'profile_detail' });
+    } else {
+      toast.error("Failed to accept interest");
+    }
+  };
+
+  const handleDeclineInterest = async () => {
+    const success = await matchStatus.declineInterest();
+    if (success) {
+      toast("Interest declined");
+      logEngagementEvent(user!.id, rawProfile.user_id, 'reject', { source: 'profile_detail' });
+    } else {
+      toast.error("Failed to decline interest");
+    }
+  };
+
+  const handleUnmatch = async () => {
+    const success = await matchStatus.unmatch();
+    if (success) {
+      toast("Unmatched");
+    } else {
+      toast.error("Failed to unmatch");
+    }
   };
 
   const handleShare = async () => {
@@ -68,18 +156,15 @@ const ProfileDetail = () => {
       url: window.location.href,
     };
     
-    // Check if running on desktop or if native share isn't supported
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     try {
       if (isMobile && navigator.share) {
         await navigator.share(shareData);
       } else {
-        // Fallback to modal for desktop
         setIsShareModalOpen(true);
       }
     } catch (error: any) {
-      // AbortError is thrown when user cancels the share dialog, ignore it
       if (error.name !== 'AbortError') {
         setIsShareModalOpen(true);
       }
@@ -88,29 +173,23 @@ const ProfileDetail = () => {
 
   const handleBlock = async () => {
     if (!user || !profile) return;
-    const { error } = await supabase.from("blocked_users" as any).insert({
-      blocker_id: user.id,
-      blocked_id: profile.userId,
-    });
-    if (error) {
-      toast.error("Failed to block user");
-    } else {
+    const ok = await blockUser(user.id, profile.userId);
+    if (ok) {
       toast.success("User blocked");
       goBack();
+    } else {
+      toast.error("Failed to block user");
     }
   };
 
   const handleReport = async () => {
     if (!user || !profile) return;
-    const { error } = await supabase.from("reports" as any).insert({
-      reporter_id: user.id,
-      reported_id: profile.userId,
-      reason: "Inappropriate content or behavior",
-    });
-    if (error) {
-      toast.error("Failed to submit report");
+    const ok = await reportUser(user.id, profile.userId, "harassment");
+    if (ok) {
+      toast.success("Report submitted. User blocked.");
+      goBack();
     } else {
-      toast.success("User reported to admins");
+      toast.error("Failed to submit report");
     }
   };
 
@@ -145,15 +224,134 @@ const ProfileDetail = () => {
     { icon: Star, label: "Gotra", value: profile.gotra || "—" },
   ];
 
+  // Determine which bottom actions to show based on match state
+  const renderBottomActions = () => {
+    if (matchStatus.loading) return null;
+
+    switch (matchStatus.state) {
+      case 'matched':
+        return (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleUnmatch}
+              className="flex items-center justify-center gap-2 rounded-2xl border-2 border-destructive/30 text-destructive py-3.5 px-4 font-heading text-sm font-bold transition-all hover:bg-destructive/5"
+            >
+              <UserX className="h-4 w-4" /> Unmatch
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate(`/chat/${profile.userId}`)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl gradient-saffron py-3.5 font-heading text-sm font-bold text-white shadow-glow-primary hover:shadow-premium transition-all relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 animate-shimmer" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)", backgroundSize: "200% 100%" }} />
+              </div>
+              <MessageCircle className="h-4 w-4 relative z-10" />
+              <span className="relative z-10">Message</span>
+            </motion.button>
+          </>
+        );
+
+      case 'interest_received':
+        return (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleDeclineInterest}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-destructive/30 text-destructive py-3.5 font-heading text-sm font-bold transition-all hover:bg-destructive/5"
+            >
+              Decline
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleAcceptInterest}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl gradient-saffron py-3.5 font-heading text-sm font-bold text-white shadow-glow-primary hover:shadow-premium transition-all"
+            >
+              <Heart className="h-4 w-4" /> Accept Interest
+            </motion.button>
+          </>
+        );
+
+      case 'interest_sent':
+        return (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              disabled
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-muted text-muted-foreground py-3.5 font-heading text-sm font-bold"
+            >
+              <Heart className="h-4 w-4 fill-current" /> Interest Sent ✓
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              disabled
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-muted py-3.5 font-heading text-sm font-bold text-muted-foreground"
+              title="You can message after a mutual match"
+            >
+              <Lock className="h-4 w-4" />
+              <span>Match to Chat</span>
+            </motion.button>
+          </>
+        );
+
+      case 'unmatched':
+      case 'declined':
+        return (
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            disabled
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-muted text-muted-foreground py-3.5 font-heading text-sm font-bold"
+          >
+            Not Available
+          </motion.button>
+        );
+
+      default: // 'none'
+        return (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSendInterest}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-primary text-primary py-3.5 font-heading text-sm font-bold transition-all hover:bg-primary/5"
+            >
+              <Heart className="h-4 w-4" /> Send Interest
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              disabled
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-muted py-3.5 font-heading text-sm font-bold text-muted-foreground"
+              title="You can message after a mutual match"
+            >
+              <Lock className="h-4 w-4" />
+              <span>Match to Chat</span>
+            </motion.button>
+          </>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-28">
       {/* ── Photo Hero ── */}
       <div className="relative aspect-[3/4] max-h-[55vh] overflow-hidden">
-        <ProfilePhotoGallery photos={profile.galleryPhotos || [profile.photo]} alt={profile.name} />
+        <ProfilePhotoGallery
+          photos={profile.galleryPhotos || [profile.photo]}
+          alt={profile.name}
+        />
+        {/* Blur overlay for private-mode photos */}
+        {profile._photo_blurred && (
+          <div className="absolute inset-0 backdrop-blur-xl bg-background/40 flex items-center justify-center z-10">
+            <div className="text-center">
+              <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-medium text-muted-foreground">Photo visible after match</p>
+            </div>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/30" />
 
         {/* Top actions */}
-        <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 pt-12">
+        <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-4 pt-12 z-20">
           <motion.button
             whileTap={{ scale: 0.88 }}
             onClick={goBack}
@@ -187,7 +385,7 @@ const ProfileDetail = () => {
         </div>
 
         {/* Badges */}
-        <div className="absolute bottom-20 left-4 flex gap-2">
+        <div className="absolute bottom-20 left-4 flex gap-2 z-20">
           {profile.isPremium && (
             <motion.span
               initial={{ opacity: 0, x: -8 }}
@@ -232,6 +430,26 @@ const ProfileDetail = () => {
             )}
           </div>
         </motion.div>
+
+        {/* Match status badge */}
+        {isMatched && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-3 flex items-center gap-2 rounded-2xl bg-teal/10 border border-teal/20 p-3"
+          >
+            <Heart className="h-4 w-4 text-teal fill-current" />
+            <span className="text-sm font-semibold text-teal">You're matched! You can now chat and see full contact details.</span>
+          </motion.div>
+        )}
+
+        {/* Gotra Exogamy Advisory Banner */}
+        <div className="mt-3">
+          <GotraWarningBanner
+            viewerGotra={myProfile?.gotra}
+            targetGotra={rawProfile?.gotra}
+          />
+        </div>
 
         {/* Info grid with stagger */}
         <div className="mt-6 grid grid-cols-2 gap-2.5">
@@ -309,30 +527,10 @@ const ProfileDetail = () => {
         )}
       </div>
 
-      {/* ── Bottom Action Bar ── */}
+      {/* ── Bottom Action Bar — state-machine driven ── */}
       <div className="fixed bottom-0 left-0 right-0 z-50">
         <div className="flex gap-3 bg-card/90 backdrop-blur-2xl border-t border-border/30 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.06)]">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSendInterest}
-            disabled={alreadySent || sending}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 py-3.5 font-heading text-sm font-bold transition-all ${
-              alreadySent ? "border-muted text-muted-foreground" : "border-primary text-primary hover:bg-primary/5"
-            }`}
-          >
-            <Heart className={`h-4 w-4 ${alreadySent ? "fill-current" : ""}`} /> {alreadySent ? "Sent ✓" : sending ? "Sending..." : "Interest"}
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(`/chat/${profile.userId}`)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl gradient-saffron py-3.5 font-heading text-sm font-bold text-white shadow-glow-primary hover:shadow-premium transition-all relative overflow-hidden group"
-          >
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="absolute inset-0 animate-shimmer" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)", backgroundSize: "200% 100%" }} />
-            </div>
-            <MessageCircle className="h-4 w-4 relative z-10" />
-            <span className="relative z-10">Message</span>
-          </motion.button>
+          {renderBottomActions()}
         </div>
       </div>
 

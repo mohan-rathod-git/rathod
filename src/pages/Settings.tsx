@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
-import { ArrowLeft, Moon, Sun, Bell, Shield, Lock, Trash2, LogOut, ChevronRight, HelpCircle, FileText } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Bell, Shield, Lock, Trash2, LogOut, ChevronRight, HelpCircle, FileText, Globe } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import LanguagePicker from "@/components/LanguagePicker";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -13,6 +14,10 @@ const Settings = () => {
   const [hideProfile, setHideProfile] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [showBlocked, setShowBlocked] = useState(false);
+  const storageUsed = (profile as any)?.storage_used_bytes || 0;
+  const STORAGE_MAX = 52428800; // 50MB
+  const storagePct = Math.min(100, Math.round((storageUsed / STORAGE_MAX) * 100));
+  const storageLabel = `${(storageUsed / 1048576).toFixed(1)} MB of 50 MB used`;
 
   const loadBlockedUsers = useCallback(async () => {
     if (!user) return;
@@ -36,7 +41,8 @@ const Settings = () => {
 
   useEffect(() => {
     if (profile) {
-      setHideProfile(profile.registration_step === -1);
+      // Use dedicated is_hidden column (not registration_step hack)
+      setHideProfile(!!(profile as any).is_hidden);
     }
   }, [profile]);
 
@@ -54,13 +60,19 @@ const Settings = () => {
   const handleHideProfile = async () => {
     if (!user) return;
     const newVal = !hideProfile;
+    // Optimistic UI
     setHideProfile(newVal);
-    // Use registration_step = -1 to hide, restore to 4 to show
-    await supabase.from("profiles").update({
-      registration_step: newVal ? -1 : 4,
-    }).eq("user_id", user.id);
+    const { error } = await supabase.from("profiles").update({
+      is_hidden: newVal,
+    } as any).eq("user_id", user.id);
+    if (error) {
+      // Roll back on failure
+      setHideProfile(!newVal);
+      toast.error("Failed to update — please try again");
+      return;
+    }
     await refreshProfile();
-    toast.success(newVal ? "Profile hidden" : "Profile visible again");
+    toast.success(newVal ? "Profile hidden from discovery" : "Profile visible again");
   };
 
   const handleUnblock = async (blockId: string) => {
@@ -108,12 +120,38 @@ const Settings = () => {
           <Row icon={darkMode ? Moon : Sun} label="Dark Mode" right={<Toggle on={darkMode} onToggle={toggleDark} />} onClick={toggleDark} />
         </Section>
 
+        <Section title="Language">
+          <div className="px-1">
+            <LanguagePicker variant="inline" />
+          </div>
+        </Section>
+
         <Section title="Notifications">
           <Row icon={Bell} label="Notification Preferences" onClick={() => navigate("/notification-preferences")} />
         </Section>
 
         <Section title="Privacy">
           <Row icon={Shield} label="Hide Profile" right={<Toggle on={hideProfile} onToggle={handleHideProfile} />} onClick={handleHideProfile} />
+          {/* Storage usage bar */}
+          <div className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Storage Used</span>
+              <span className="text-xs text-muted-foreground">{storageLabel}</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  storagePct > 90 ? 'bg-destructive' : storagePct > 70 ? 'bg-amber-500' : 'bg-primary'
+                }`}
+                style={{ width: `${storagePct}%` }}
+              />
+            </div>
+            {storagePct > 90 && (
+              <p className="text-[10px] text-destructive font-semibold">
+                Almost full! Delete photos to free space.
+              </p>
+            )}
+          </div>
           <Row icon={Lock} label={`Blocked Users (${blockedUsers.length})`} onClick={() => setShowBlocked(!showBlocked)} />
         </Section>
 
@@ -136,8 +174,9 @@ const Settings = () => {
         <Section title="Help & Legal">
           <Row icon={HelpCircle} label="About Us" onClick={() => navigate("/about")} />
           <Row icon={HelpCircle} label="FAQ & Support" onClick={() => navigate("/settings/faq")} />
-          <Row icon={FileText} label="Privacy Policy" onClick={() => navigate("/settings/privacy-policy")} />
-          <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/settings/terms")} />
+          <Row icon={FileText} label="Privacy Policy" onClick={() => navigate("/legal#privacy")} />
+          <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/legal#terms")} />
+          <Row icon={FileText} label="Community Guidelines" onClick={() => navigate("/legal#community")} />
         </Section>
 
         <Section title="Account">

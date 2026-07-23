@@ -55,6 +55,26 @@
     --sidebar-accent-foreground: 20 25% 10%;
     --sidebar-border: 30 15% 89%;
     --sidebar-ring: 14 80% 52%;
+
+    /* ── Fluid Typography Scale ── */
+    --fs-xs: clamp(0.625rem, 0.55rem + 0.25vw, 0.75rem);
+    --fs-sm: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
+    --fs-base: clamp(0.875rem, 0.825rem + 0.2vw, 1rem);
+    --fs-lg: clamp(1rem, 0.925rem + 0.3vw, 1.125rem);
+    --fs-xl: clamp(1.125rem, 1rem + 0.5vw, 1.25rem);
+    --fs-2xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+    --fs-3xl: clamp(1.5rem, 1.3rem + 0.8vw, 1.875rem);
+    --fs-4xl: clamp(1.875rem, 1.6rem + 1vw, 2.25rem);
+
+    /* ── Spacing Scale ── */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
   }
 
   .dark {
@@ -114,11 +134,13 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+    font-size: var(--fs-base);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    overflow-x: hidden;
   }
   input, textarea, [contenteditable="true"] {
     -webkit-user-select: auto;
@@ -129,12 +151,35 @@
     font-family: 'Outfit', sans-serif;
     letter-spacing: -0.01em;
   }
+  h1 { font-size: var(--fs-3xl); }
+  h2 { font-size: var(--fs-2xl); }
+  h3 { font-size: var(--fs-lg); }
   .font-display {
     font-family: 'Playfair Display', serif;
+  }
+
+  /* ── Minimum tap target enforcement (WCAG 2.5.8) ── */
+  button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .inline-link, a[class*="text-xs"], a[class*="text-sm"] {
+    min-height: unset;
+    min-width: unset;
   }
 }
 
 @layer utilities {
+  /* ── Fluid Typography Utility Classes ── */
+  .text-fluid-xs { font-size: var(--fs-xs); }
+  .text-fluid-sm { font-size: var(--fs-sm); }
+  .text-fluid-base { font-size: var(--fs-base); }
+  .text-fluid-lg { font-size: var(--fs-lg); }
+  .text-fluid-xl { font-size: var(--fs-xl); }
+  .text-fluid-2xl { font-size: var(--fs-2xl); }
+  .text-fluid-3xl { font-size: var(--fs-3xl); }
+  .text-fluid-4xl { font-size: var(--fs-4xl); }
+
   /* ── Gradient Collection ── */
   .gradient-saffron {
     background: linear-gradient(135deg, hsl(22 85% 56%) 0%, hsl(14 80% 52%) 50%, hsl(6 65% 46%) 100%);
@@ -212,6 +257,10 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-border;
   }
+
+  /* ── Safe area padding for notched devices ── */
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-top { padding-top: env(safe-area-inset-top, 0px); }
 }
 
 .dark .gradient-warm {
@@ -222,22 +271,13 @@
    ANIMATIONS — Premium Motion System
    ═══════════════════════════════════════════ */
 
-/* Page transition wrapper */
 .page-enter {
   animation: pageEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
+  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
 @keyframes fadeInUp {
@@ -274,8 +314,6 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
-/* ── New Premium Keyframes ── */
 
 @keyframes mehendi-draw {
   from { stroke-dashoffset: 1000; opacity: 0; }
@@ -343,3 +381,19 @@
 .animate-morph { animation: morph 8s ease-in-out infinite; }
 .animate-gradient-shift { background-size: 200% 200%; animation: gradient-shift 5s ease infinite; }
 .animate-slide-in-right { animation: slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ═══════════════════════════════════════════
+   ACCESSIBILITY — prefers-reduced-motion
+   Globally disables ALL animations & transitions
+   when the user has requested reduced motion.
+   ═══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

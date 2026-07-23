@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 import { supabase } from "@/integrations/supabase/client";
 import SEO from "@/components/SEO";
+import { getRecommendedProfiles } from "@/lib/recommendationEngine";
 
 const Index = () => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -66,7 +67,24 @@ const Index = () => {
     });
   };
 
-  const displayProfiles = applyFilters(profiles.filter((p) => p.user_id !== user?.id)).map(dbProfileToDisplay);
+  const filteredRaw = applyFilters(profiles.filter((p) => p.user_id !== user?.id));
+
+  // Apply recommendation scoring if profile context is available
+  const scoredCandidateProfiles = profile ? getRecommendedProfiles(filteredRaw, {
+    viewerProfile: {
+      ...profile,
+      pref_age_min: profile.pref_age_min ?? 18,
+      pref_age_max: profile.pref_age_max ?? 70,
+      pref_states: profile.pref_states ?? [],
+      pref_marital_status: profile.pref_marital_status ?? [],
+      pref_education: profile.pref_education ?? [],
+    } as any,
+    blockedUserIds: new Set(),
+    sentInterestUserIds: new Set(),
+    receivedInterestUserIds: new Set(),
+  }) : filteredRaw;
+
+  const displayProfiles = scoredCandidateProfiles.map(dbProfileToDisplay);
 
   const handleRefresh = useCallback(async () => {
     await new Promise((r) => setTimeout(r, 1200));

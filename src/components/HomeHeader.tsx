@@ -1,51 +1,19 @@
-import { Bell, Crown, Sparkles } from "lucide-react";
+import { Crown, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
+import NotificationBell from "@/components/NotificationBell";
 
 interface HomeHeaderProps {
   userName: string;
 }
 
 const HomeHeader = ({ userName }: HomeHeaderProps) => {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Fetch actual unread notification count
-  useEffect(() => {
-    if (!user) return;
-    const fetchUnread = async () => {
-      // Count unread messages
-      const { count: msgCount } = await supabase
-        .from("messages")
-        .select("*", { count: "exact", head: true })
-        .eq("receiver_id", user.id)
-        .eq("is_read", false);
-      // Count pending interests
-      const { count: interestCount } = await supabase
-        .from("interests")
-        .select("*", { count: "exact", head: true })
-        .eq("receiver_id", user.id)
-        .eq("status", "pending");
-      setUnreadCount((msgCount || 0) + (interestCount || 0));
-    };
-    fetchUnread();
-
-    // Refresh on realtime changes
-    const channel = supabase
-      .channel("header-unread")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, fetchUnread)
-      .on("postgres_changes", { event: "*", schema: "public", table: "interests" }, fetchUnread)
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
 
   return (
     <header className="relative overflow-hidden">
@@ -115,22 +83,7 @@ const HomeHeader = ({ userName }: HomeHeaderProps) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                onClick={() => navigate("/notification-preferences")}
-                className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white backdrop-blur-sm border border-white/8 transition-all hover:bg-white/15"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent text-[9px] font-bold text-accent-foreground shadow-md px-0.5"
-                  >
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </motion.span>
-                )}
-              </motion.button>
+              <NotificationBell />
               <motion.button
                 whileTap={{ scale: 0.88 }}
                 onClick={() => navigate("/subscription")}

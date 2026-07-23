@@ -1,17 +1,20 @@
 import { useState, useRef } from "react";
 import BottomNav from "@/components/BottomNav";
-import { Camera, ChevronRight, Crown, Eye, Heart, LogOut, Settings, Users, Star, BookOpen, Loader2, Pencil, Share2, ShieldCheck } from "lucide-react";
+import { Camera, ChevronRight, Crown, Eye, Heart, LogOut, Settings, Users, Star, BookOpen, Loader2, Pencil, Share2, ShieldCheck, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { calculateProfileCompletion } from "@/lib/profileUtils";
+import CropModal from "@/components/CropModal";
+import { uploadWithQuotaCheck, decrementStorageQuota } from "@/lib/storageQuota";
 
 const MyProfile = () => {
   const navigate = useNavigate();
   const { profile, signOut, user, refreshProfile } = useAuth();
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [selectedCropImage, setSelectedCropImage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
@@ -23,20 +26,39 @@ const MyProfile = () => {
 
   const handleLogout = async () => { await signOut(); navigate("/login", { replace: true }); };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+    if (file.size > 15 * 1024 * 1024) { toast.error("File size must be under 15MB"); return; }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedCropImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCroppedPhotoUpload = async (croppedBlob: Blob) => {
+    if (!user) return;
+    setSelectedCropImage(null);
     setAvatarUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (error) { toast.error("Upload failed"); setAvatarUploading(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-    await supabase.from("profiles").update({ photo_url: publicUrl }).eq("user_id", user.id);
+
+    const path = `${user.id}/avatar.jpg`;
+    const croppedFile = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+
+    const result = await uploadWithQuotaCheck(croppedFile, user.id, path, "avatars", { upsert: true });
+
+    if (!result.success) {
+      toast.error(result.error || "Upload failed");
+      setAvatarUploading(false);
+      return;
+    }
+
+    await supabase.from("profiles").update({ photo_url: result.publicUrl }).eq("user_id", user.id);
     await refreshProfile();
     setAvatarUploading(false);
-    toast.success("Photo updated!");
+    toast.success("Profile photo updated!");
   };
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,34 +73,35 @@ const MyProfile = () => {
     }
 
     const selectedFiles = files.slice(0, remainingSlots);
-    if (selectedFiles.some((file) => file.size > 5 * 1024 * 1024)) {
-      toast.error("Each photo must be under 5MB");
-      e.target.value = "";
-      return;
-    }
-
     setGalleryUploading(true);
 
     try {
-      const uploadedUrls = await Promise.all(selectedFiles.map(async (file, index) => {
-        const ext = file.name.split(".").pop();
+      const uploadedUrls: string[] = [];
+      for (let index = 0; index < selectedFiles.length; index++) {
+        const file = selectedFiles[index];
+        const ext = file.name.split(".").pop() || "jpg";
         const path = `${user.id}/gallery/${Date.now()}-${index}.${ext}`;
-        const { error } = await supabase.storage.from("avatars").upload(path, file);
+
+        const result = await uploadWithQuotaCheck(file, user.id, path, "avatars");
+        if (!result.success) {
+          toast.error(result.error || `Upload failed for ${file.name}`);
+          break;
+        }
+        if (result.publicUrl) uploadedUrls.push(result.publicUrl);
+      }
+
+      if (uploadedUrls.length > 0) {
+        const nextPhotos = [...galleryPhotos, ...uploadedUrls].slice(0, 6);
+        const { error } = await supabase.from("profiles").update({ additional_photos: nextPhotos }).eq("user_id", user.id);
         if (error) throw error;
-        return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
-      }));
 
-      const nextPhotos = [...galleryPhotos, ...uploadedUrls].slice(0, 6);
-      const { error } = await supabase.from("profiles").update({ additional_photos: nextPhotos }).eq("user_id", user.id);
-      if (error) throw error;
-
-      await refreshProfile();
-      toast.success(`${uploadedUrls.length} photo${uploadedUrls.length > 1 ? "s" : ""} added`);
+        await refreshProfile();
+        toast.success(`${uploadedUrls.length} photo${uploadedUrls.length > 1 ? "s" : ""} added`);
+      }
     } catch {
       toast.error("Gallery upload failed");
     } finally {
       setGalleryUploading(false);
-      e.target.value = "";
     }
   };
 
@@ -92,6 +115,9 @@ const MyProfile = () => {
       toast.error("Couldn't remove photo");
       return;
     }
+
+    // Decrement estimated storage quota (~1MB per photo)
+    await decrementStorageQuota(user.id, 1024 * 1024);
 
     await refreshProfile();
     toast.success("Photo removed");
@@ -117,8 +143,17 @@ const MyProfile = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+      <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} />
       <input type="file" ref={galleryRef} accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
+
+      {selectedCropImage && (
+        <CropModal
+          imageUrl={selectedCropImage}
+          onConfirm={handleCroppedPhotoUpload}
+          onCancel={() => setSelectedCropImage(null)}
+          aspectRatio={1}
+        />
+      )}
 
       <div className="gradient-saffron relative h-32 overflow-hidden">
         <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-white/5" />
