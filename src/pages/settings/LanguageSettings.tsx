@@ -5,25 +5,19 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
-const LANGUAGES = [
-  { code: "en", name: "English", native: "English", flag: "🇬🇧" },
-  { code: "hi", name: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
-  { code: "te", name: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
-  { code: "mr", name: "Marathi", native: "మరాఠీ", flag: "🇮🇳" },
-  { code: "kn", name: "Kannada", native: "కన్నడ", flag: "🇮🇳" },
-  { code: "ta", name: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
-];
+import { SUPPORTED_LANGUAGES } from "@/i18n";
 
 const LanguageSettings = () => {
   const navigate = useNavigate();
-  const { i18n, t } = useTranslation();
+  const { i18n } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || "en");
 
   const handleSelectLanguage = (code: string) => {
     setSelectedLanguage(code);
     i18n.changeLanguage(code);
-    localStorage.setItem("i18nextLng", code);
-    toast.success(`Language updated to ${LANGUAGES.find(l => l.code === code)?.name}`);
+    localStorage.setItem("bb_language", code);
+    const langObj = SUPPORTED_LANGUAGES.find(l => l.code === code);
+    toast.success(`Language updated to ${langObj?.label}`);
   };
 
   return (
@@ -46,7 +40,7 @@ const LanguageSettings = () => {
 
       {/* Language Options Grid */}
       <div className="max-w-md mx-auto p-4 space-y-3 mt-2">
-        {LANGUAGES.map((lang, index) => {
+        {SUPPORTED_LANGUAGES.map((lang, index) => {
           const isSelected = selectedLanguage === lang.code;
           return (
             <motion.button
@@ -64,8 +58,8 @@ const LanguageSettings = () => {
               <div className="flex items-center gap-3.5">
                 <span className="text-2xl">{lang.flag}</span>
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">{lang.name}</h3>
-                  <p className="text-xs text-muted-foreground">{lang.native}</p>
+                  <h3 className="font-bold text-sm text-foreground">{lang.label}</h3>
+                  <p className="text-xs text-muted-foreground">{lang.nativeLabel}</p>
                 </div>
               </div>
 

@@ -3,14 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
-// lovable-tagger is dev-only — safely skip if not available (e.g. Vercel prod builds)
-let componentTagger: (() => any) | null = null;
-try {
-  componentTagger = require("lovable-tagger").componentTagger;
-} catch {
-  // not installed in production — safe to ignore
-}
-
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -21,12 +13,23 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger && componentTagger(),
+    // lovable-tagger is dev-only — dynamically imported to avoid ESM/CJS issues on Vercel
+    mode === "development" && {
+      name: 'lovable-tagger-loader',
+      async configResolved() {
+        try {
+          const { componentTagger } = await import("lovable-tagger");
+          if (componentTagger) componentTagger();
+        } catch {
+          // not installed in production — safe to ignore
+        }
+      },
+    },
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["placeholder.svg", "robots.txt"],
       workbox: {
-        navigateFallbackDenylist: [/^\/~oauth/],
+        navigateFallbackDenylist: [/^\/~oauth/, /\/auth\/v1\/callback/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}"],
       },
       manifest: {

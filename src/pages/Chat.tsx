@@ -3,18 +3,24 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRealtimeMessages } from "@/hooks/useRealtime";
-import { ArrowLeft, Send, Loader2, Phone, Video, CheckCheck, Check, UserPlus, UserCheck, ShieldAlert, Lock } from "lucide-react";
+import { ArrowLeft, Phone, Video, CheckCheck, Check, UserPlus, UserCheck, Lock } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import CallScreen from "@/components/chat/CallScreen";
 import { useGoBack } from "@/hooks/useGoBack";
-import EmojiPicker from "@/components/chat/EmojiPicker";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 import { moderateText } from "@/lib/moderation";
 import { useMatchStatus } from "@/hooks/useMatchStatus";
 import { useFriendStatus } from "@/hooks/useFriendStatus";
 import { toast } from "sonner";
+import ChatThemePicker from "@/components/chat/ChatThemePicker";
+import ChatComposerBar from "@/components/chat/ChatComposerBar";
+import MessageReactions from "@/components/chat/MessageReactions";
+import FirstMessageCelebration from "@/components/chat/FirstMessageCelebration";
+import { getChatThemeForMatch, setChatThemeForMatch, type ChatTheme } from "@/lib/chatThemes";
+import type { ReactionEmoji } from "@/components/chat/MessageReactions";
+import { Loader2 } from "lucide-react";
 
 const Chat = () => {
   const { partnerId } = useParams<{ partnerId: string }>();
@@ -25,15 +31,64 @@ const Chat = () => {
   const { localStream, remoteStream, callStatus, callType, startCall, acceptCall, rejectCall, endCall, isCallReady } = useWebRTC(user?.id, partnerId);
   const matchStatus = useMatchStatus(partnerId);
   const friendStatus = useFriendStatus(partnerId);
+  const shouldReduceMotion = useReducedMotion();
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [partner, setPartner] = useState<any>(null);
   const [partnerTyping, setPartnerTyping] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [justSentFirstMessage, setJustSentFirstMessage] = useState(false);
+
+  // Theme system
+  const [theme, setTheme] = useState<ChatTheme>(() => {
+    if (user?.id && partnerId) return getChatThemeForMatch(user.id, partnerId);
+    return getChatThemeForMatch('', '');
+  });
+
+  // Reactions (in-memory per session)
+  const [reactions, setReactions] = useState<Record<string, ReactionEmoji>>({});
+
+  // Double-tap tracking
+  const lastTap = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (user?.id && partnerId) {
+      setTheme(getChatThemeForMatch(user.id, partnerId));
+    }
+  }, [user?.id, partnerId]);
+
+  const handleThemeChange = (newTheme: ChatTheme) => {
+    if (user?.id && partnerId) {
+      setChatThemeForMatch(user.id, partnerId, newTheme.id);
+      setTheme(newTheme);
+    }
+  };
+
+  const handleReaction = (messageId: string, emoji: ReactionEmoji | null) => {
+    setReactions(prev => {
+      const next = { ...prev };
+      if (emoji === null) {
+        delete next[messageId];
+      } else {
+        next[messageId] = emoji;
+      }
+      return next;
+    });
+  };
+
+  // Double-tap-to-heart
+  const handleDoubleTap = (messageId: string) => {
+    const now = Date.now();
+    const lastTime = lastTap.current[messageId] || 0;
+    lastTap.current[messageId] = now;
+
+    if (now - lastTime < 300) {
+      // Double tap detected — toggle heart
+      handleReaction(messageId, reactions[messageId] === '❤️' ? null : '❤️');
+    }
+  };
 
   useEffect(() => {
     if (!partnerId) return;
@@ -86,8 +141,8 @@ const Chat = () => {
     }, { onConflict: "user_id,partner_id" });
   }, [user, partnerId]);
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setText(e.target.value);
+  const handleTextChange = (newText: string) => {
+    setText(newText);
     sendTypingStatus(true);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => sendTypingStatus(false), 2000);
@@ -95,9 +150,6 @@ const Chat = () => {
 
   const handleEmojiSelect = (emoji: string) => {
     setText((prev) => prev + emoji);
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
   };
 
   const handleCall = (type: 'audio' | 'video') => {
@@ -115,7 +167,7 @@ const Chat = () => {
 
   const handleSend = async () => {
     if (!text.trim() || !user || !partnerId) return;
-    
+
     if (matchStatus.state !== 'matched') {
       toast.error("Messaging requires mutual match! Send an interest first.");
       return;
@@ -125,25 +177,92 @@ const Chat = () => {
     const modResult = moderateText(text.trim());
     const contentToSend = modResult.sanitizedText;
 
+    const isFirstMessage = messages.length === 0;
+
     setSending(true);
     sendTypingStatus(false);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    setShowEmoji(false);
     await supabase.from("messages").insert({
       sender_id: user.id, receiver_id: partnerId, content: contentToSend,
     });
     setText("");
     setSending(false);
+
+    if (isFirstMessage) {
+      setJustSentFirstMessage(true);
+    }
   };
 
+  // Match key for celebration tracking
+  const matchKey = user?.id && partnerId
+    ? [user.id, partnerId].sort().join('_')
+    : '';
+
+  // Bubble animation variants (directional)
+  const getBubbleVariants = (isMine: boolean) => {
+    if (shouldReduceMotion) {
+      return {
+        initial: { opacity: 1 },
+        animate: { opacity: 1 },
+      };
+    }
+    return {
+      initial: {
+        opacity: 0,
+        x: isMine ? 12 : -12,
+        scale: 0.96,
+      },
+      animate: {
+        opacity: 1,
+        x: 0,
+        scale: 1,
+        transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
+      },
+    };
+  };
+
+  // SVG heart petal decoration for empty state
+  const EmptyChatDecoration = () => (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.07]">
+      {[...Array(6)].map((_, i) => (
+        <svg
+          key={i}
+          className="absolute text-rose-400"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          style={{
+            top: `${15 + Math.sin(i * 1.2) * 30}%`,
+            left: `${10 + (i * 15) % 80}%`,
+            transform: `rotate(${i * 45}deg) scale(${0.6 + (i % 3) * 0.3})`,
+          }}
+        >
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </svg>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col" style={{ background: `linear-gradient(180deg, ${theme.backgroundGradientStart}, ${theme.backgroundGradientEnd})` }}>
+      {/* First message celebration overlay */}
+      <FirstMessageCelebration matchKey={matchKey} trigger={justSentFirstMessage} />
+
       {/* Header */}
-      <div className="flex items-center gap-3 bg-card/85 backdrop-blur-2xl border-b border-border/50 px-4 pt-12 pb-3 shadow-sm z-10">
+      <div
+        className="flex items-center gap-3 border-b px-4 pt-12 pb-3 shadow-sm z-10"
+        style={{
+          background: `${theme.composerBg}`,
+          borderColor: theme.composerBorder,
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+        }}
+      >
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={goBack}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted active:scale-95 transition-transform"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/60 active:scale-95 transition-transform"
         >
           <ArrowLeft className="h-4 w-4 text-foreground" />
         </motion.button>
@@ -154,11 +273,14 @@ const Chat = () => {
         <div className="flex-1 min-w-0">
           <h2 className="font-heading text-sm font-bold text-foreground truncate">{partner?.full_name || "..."}</h2>
           {partnerTyping ? (
-            <p className="text-[10px] text-primary font-semibold animate-pulse">typing...</p>
+            <p className="text-[10px] font-semibold animate-pulse" style={{ color: theme.accentGlow }}>typing...</p>
           ) : partner?.is_online ? (
             <p className="text-[10px] text-emerald-500 font-semibold">Online now</p>
           ) : null}
         </div>
+
+        {/* Theme picker */}
+        <ChatThemePicker currentThemeId={theme.id} onSelectTheme={handleThemeChange} />
 
         {/* Friend status / request button in header */}
         {friendStatus.status === 'none' && (
@@ -182,7 +304,7 @@ const Chat = () => {
           onClick={() => handleCall('video')}
           disabled={!isCallReady}
           className={`flex h-10 w-10 items-center justify-center rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
-            friendStatus.isFriends ? 'bg-muted text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/50 text-muted-foreground/60'
+            friendStatus.isFriends ? 'bg-muted/60 text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/30 text-muted-foreground/60'
           }`}
           title={friendStatus.isFriends ? "Video Call" : "Locked (Friend tier required)"}
         >
@@ -193,7 +315,7 @@ const Chat = () => {
           onClick={() => handleCall('audio')}
           disabled={!isCallReady}
           className={`flex h-10 w-10 items-center justify-center rounded-2xl active:scale-95 transition-transform disabled:opacity-50 ${
-            friendStatus.isFriends ? 'bg-muted text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/50 text-muted-foreground/60'
+            friendStatus.isFriends ? 'bg-muted/60 text-foreground hover:bg-primary/10 hover:text-primary' : 'bg-muted/30 text-muted-foreground/60'
           }`}
           title={friendStatus.isFriends ? "Voice Call" : "Locked (Friend tier required)"}
         >
@@ -228,7 +350,7 @@ const Chat = () => {
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 relative">
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="relative">
@@ -237,54 +359,97 @@ const Chat = () => {
             </div>
           </div>
         ) : messages.length === 0 ? (
-          <EmptyStateGraphic
-            variant="no-messages"
-            title="Start the conversation"
-            subtitle="Say something nice to break the ice!"
-          />
+          <div className="relative">
+            <EmptyChatDecoration />
+            <EmptyStateGraphic
+              variant="no-messages"
+              title="Start the conversation"
+              subtitle="Say something nice to break the ice!"
+            />
+          </div>
         ) : (
           <AnimatePresence>
             {messages.map((msg, i) => {
               const isMine = msg.sender_id === user?.id;
-              
-              // Determine if we should show a date separator
+
+              // Date separator
               const currentDate = new Date(msg.created_at);
               const prevMsg = i > 0 ? messages[i - 1] : null;
               const showDateSeparator = !prevMsg || !isSameDay(currentDate, new Date(prevMsg.created_at));
 
+              const variants = getBubbleVariants(isMine);
+
               return (
-                <div key={msg.id} className="space-y-4">
+                <div key={msg.id} className="space-y-3">
                   {showDateSeparator && (
-                    <div className="flex justify-center my-4 relative">
-                      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/30"></div></div>
-                      <span className="relative bg-background px-3 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 rounded-full">
+                    <div className="flex justify-center my-3 relative">
+                      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/20"></div></div>
+                      <span
+                        className="relative px-3 text-[10px] uppercase tracking-wider font-semibold rounded-full"
+                        style={{ color: theme.dateSeparatorColor, background: theme.backgroundGradientStart }}
+                      >
                         {isSameDay(currentDate, new Date()) ? "Today" : format(currentDate, "MMM d, yyyy")}
                       </span>
                     </div>
                   )}
+
+                  {/* Message bubble */}
                   <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    initial={variants.initial}
+                    animate={variants.animate}
                     className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                    onClick={() => handleDoubleTap(msg.id)}
                   >
-                    <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                      isMine
-                        ? "bg-primary text-white rounded-br-sm shadow-glow-primary dark:bg-primary/90"
-                        : "bg-card border border-border/50 text-foreground rounded-bl-sm shadow-soft dark:bg-muted/40"
-                    }`}>
-                    <p className="text-[13px] leading-relaxed">{msg.content}</p>
-                    <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : ""}`}>
-                      <p className={`text-[9px] ${isMine ? "text-white/50" : "text-muted-foreground"}`}>
-                        {format(new Date(msg.created_at), "h:mm a")}
-                      </p>
-                      {isMine && (
-                        msg.is_read ? (
-                          <CheckCheck className={`h-3 w-3 ${isMine ? "text-white/70" : "text-primary"}`} />
-                        ) : (
-                          <Check className="h-3 w-3 text-white/40" />
-                        )
+                    <div className="max-w-[75%] flex flex-col">
+                      <div
+                        className={`rounded-2xl px-4 py-2.5 ${
+                          isMine
+                            ? "rounded-br-sm shadow-lg"
+                            : "rounded-bl-sm shadow-soft border"
+                        }`}
+                        style={
+                          isMine
+                            ? {
+                                background: theme.bubbleSent,
+                                color: theme.bubbleSentText,
+                              }
+                            : {
+                                background: theme.bubbleReceived,
+                                color: theme.bubbleReceivedText,
+                                borderColor: theme.composerBorder,
+                              }
+                        }
+                      >
+                        <p className="text-[13px] leading-relaxed">{msg.content}</p>
+                        <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : ""}`}>
+                          <p className="text-[9px]" style={{ opacity: 0.55 }}>
+                            {format(new Date(msg.created_at), "h:mm a")}
+                          </p>
+                          {isMine && (
+                            <motion.span
+                              initial={shouldReduceMotion ? {} : { opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {msg.is_read ? (
+                                <CheckCheck className="h-3 w-3" style={{ opacity: 0.7 }} />
+                              ) : (
+                                <Check className="h-3 w-3" style={{ opacity: 0.4 }} />
+                              )}
+                            </motion.span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Reactions */}
+                      {matchStatus.state === 'matched' && (
+                        <MessageReactions
+                          messageId={msg.id}
+                          reaction={reactions[msg.id] || null}
+                          onReact={handleReaction}
+                          isMine={isMine}
+                        />
                       )}
-                    </div>
                     </div>
                   </motion.div>
                 </div>
@@ -292,11 +457,17 @@ const Chat = () => {
             })}
             {partnerTyping && (
               <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, x: -12, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
                 className="flex justify-start"
               >
-                <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 shadow-soft dark:bg-muted/40">
+                <div
+                  className="rounded-2xl rounded-bl-sm px-4 py-3 shadow-soft border"
+                  style={{
+                    background: theme.bubbleReceived,
+                    borderColor: theme.composerBorder,
+                  }}
+                >
                   <div className="flex gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -309,36 +480,16 @@ const Chat = () => {
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border/50 bg-card/90 backdrop-blur-2xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.06)]">
-        <div className="flex flex-col gap-2 relative">
-          <div className="flex items-center gap-2">
-            <EmojiPicker
-              isOpen={showEmoji}
-              onToggle={() => setShowEmoji(!showEmoji)}
-              onSelect={handleEmojiSelect}
-            />
-            
-            <input
-              ref={inputRef}
-              value={text}
-              onChange={handleTextChange}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Type a message..."
-              className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all placeholder:text-muted-foreground"
-            />
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={handleSend}
-              disabled={!text.trim() || sending}
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl gradient-saffron text-white shadow-glow-primary disabled:opacity-40 disabled:shadow-none transition-all group overflow-hidden relative"
-            >
-              <div className="absolute inset-0 animate-shimmer opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)", backgroundSize: "200% 100%" }} />
-              <Send className="h-4 w-4 relative z-10 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </motion.button>
-          </div>
-        </div>
-      </div>
+      {/* Custom composer bar */}
+      <ChatComposerBar
+        text={text}
+        onTextChange={handleTextChange}
+        onSend={handleSend}
+        onEmojiSelect={handleEmojiSelect}
+        sending={sending}
+        theme={theme}
+        placeholder="Type a message..."
+      />
 
       {callStatus !== 'idle' && (
         <CallScreen
