@@ -67,7 +67,7 @@ const Explore = () => {
 
   return (
     <div ref={containerRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-      className="min-h-screen bg-background pb-20 overflow-y-auto">
+      className="flex flex-col min-h-dvh bg-background">
       <SEO title="Explore Matches" description="Find your perfect Banjara community match through advanced filters and search." />
       <PullIndicator />
       <div className="sticky top-0 z-40 bg-card/85 backdrop-blur-2xl border-b border-border/30 px-4 pb-3 pt-12">

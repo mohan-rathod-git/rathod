@@ -142,7 +142,7 @@ const MyProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={handlePhotoSelect} />
       <input type="file" ref={galleryRef} accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
 

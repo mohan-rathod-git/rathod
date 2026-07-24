@@ -30,7 +30,7 @@ const AboutUs = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-20 overflow-y-auto">
+    <div className="flex flex-col min-h-dvh bg-background">
       <SEO 
         title="About Us & Founder" 
         description="Learn more about Banjara Bandhan, our mission to unite the Banjara community, and our Founder & CEO, Mohan Laxman Rathod."

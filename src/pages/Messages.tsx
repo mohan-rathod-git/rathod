@@ -35,7 +35,7 @@ const Messages = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       <div className="bg-card/80 backdrop-blur-xl border-b border-border/30 px-4 pt-12 pb-4">
         <motion.h1
           initial={{ opacity: 0, x: -12 }}

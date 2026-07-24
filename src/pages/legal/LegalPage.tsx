@@ -91,7 +91,7 @@ const LegalPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-3">
         <div className="flex items-center gap-3 mb-3">

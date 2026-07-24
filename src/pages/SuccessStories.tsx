@@ -14,7 +14,7 @@ const SuccessStories = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       <div className="sticky top-0 z-40 bg-card/85 backdrop-blur-2xl border-b border-border/30 px-4 pt-12 pb-4">
         <div className="flex items-center gap-3">
           <motion.button

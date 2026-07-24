@@ -30,9 +30,11 @@ const AppShell = ({ children }: { children: React.ReactNode }) => {
         display: "flex",
         justifyContent: "center",
         alignItems: "flex-start",
+        overflowX: "hidden",
       }}
     >
       <div
+        id="app-shell-inner"
         style={{
           width: "100%",
           maxWidth: "480px",
@@ -40,7 +42,8 @@ const AppShell = ({ children }: { children: React.ReactNode }) => {
           position: "relative",
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflowX: "hidden",
+          /* NOTE: overflow-y must NOT be hidden — it breaks sticky BottomNav */
         }}
         className="bg-background shadow-[0_0_80px_rgba(0,0,0,0.5)] sm:shadow-[0_0_100px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
       >

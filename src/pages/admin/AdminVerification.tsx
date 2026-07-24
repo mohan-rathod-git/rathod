@@ -59,7 +59,7 @@ const AdminVerification = () => {
   const statusColor: Record<string, string> = { pending: "text-amber-600", approved: "text-emerald-600", rejected: "text-destructive" };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground active:scale-95 transition-transform">

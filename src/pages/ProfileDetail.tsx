@@ -332,7 +332,7 @@ const ProfileDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="flex flex-col min-h-dvh bg-background">
       {/* ── Photo Hero ── */}
       <div className="relative aspect-[3/4] max-h-[55vh] overflow-hidden">
         <ProfilePhotoGallery

@@ -100,7 +100,7 @@ const Index = () => {
 
   return (
     <div ref={containerRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-      className="min-h-screen bg-background pb-20 overflow-y-auto">
+      className="flex flex-col min-h-dvh bg-background">
       <SEO />
       <PullIndicator />
       <HomeHeader userName={userName} />

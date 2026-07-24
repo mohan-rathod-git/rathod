@@ -48,7 +48,7 @@ const Matches = () => {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      className="min-h-screen bg-background pb-20 overflow-y-auto"
+      className="flex flex-col min-h-dvh bg-background"
     >
       <PullIndicator />
       <div className="bg-card/80 backdrop-blur-xl border-b border-border/30 px-4 pt-12 pb-1">

@@ -137,7 +137,7 @@ const NotificationPreferences = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="flex flex-col min-h-dvh bg-background">
       <div className="sticky top-0 z-40 border-b border-border/50 bg-card/80 px-4 pt-12 pb-4 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground transition-transform active:scale-95">

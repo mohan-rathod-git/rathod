@@ -72,7 +72,7 @@ const Notifications = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="flex flex-col min-h-dvh bg-background">
       {/* Top Header */}
       <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50 px-4 pt-10 pb-3 shadow-xs">
         <div className="flex items-center justify-between gap-3">
