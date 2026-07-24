@@ -30,3 +30,7 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Vite build cache / timestamp artifacts
+*.timestamp*
+*.mjs.map
