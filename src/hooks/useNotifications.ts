@@ -1,22 +1,25 @@
 /**
- * Notification Hook — Banjara Bandhan v4.0
+ * Notification Hook — Banjara Bandhan v5.0
  *
- * Provides real-time notification feed:
- * - Interest received
- * - Interest accepted (match!)
- * - New message
- * - Profile view (if premium)
+ * Unified notifications feed covering:
+ * - Interests received
+ * - Mutual matches
+ * - New messages
+ * - System broadcasts & Admin alerts
  *
- * Uses Supabase real-time subscriptions for push-like behavior.
+ * Features persistent read state, real-time sync, and category filtering.
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-export interface Notification {
+export type NotificationCategory = "all" | "likes" | "interests" | "messages" | "matches" | "system";
+
+export interface NotificationItem {
   id: string;
-  type: 'interest_received' | 'match' | 'message' | 'profile_view' | 'system';
+  type: "interest_received" | "match" | "message" | "system";
+  category: "interests" | "matches" | "messages" | "system";
   title: string;
   body: string;
   fromUserId: string | null;
@@ -24,15 +27,33 @@ export interface Notification {
   fromUserPhoto: string | null;
   read: boolean;
   createdAt: string;
+  linkUrl: string;
 }
 
 export function useNotifications() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Build notifications from interests table
+  // Helper to load read IDs from localStorage
+  const getReadSet = useCallback((userId: string): Set<string> => {
+    try {
+      const stored = localStorage.getItem(`bb_read_notifications_${userId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }, []);
+
+  const saveReadSet = useCallback((userId: string, readSet: Set<string>) => {
+    try {
+      localStorage.setItem(`bb_read_notifications_${userId}`, JSON.stringify(Array.from(readSet)));
+    } catch {
+      // Ignore quota errors
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
@@ -40,95 +61,148 @@ export function useNotifications() {
       return;
     }
 
-    try {
-      // Fetch interests received (as notifications)
-      const { data: interests } = await supabase
-        .from('interests')
-        .select('id, sender_id, status, created_at')
-        .eq('receiver_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+    setLoading(true);
+    setError(null);
 
-      if (!interests || interests.length === 0) {
-        setNotifications([]);
-        setUnreadCount(0);
-        setLoading(false);
-        return;
+    try {
+      const readSet = getReadSet(user.id);
+
+      // 1. Fetch received interests & matches
+      const { data: interests } = await supabase
+        .from("interests")
+        .select("id, sender_id, status, created_at")
+        .eq("receiver_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(40);
+
+      // 2. Fetch latest received messages
+      const { data: messages } = await supabase
+        .from("messages")
+        .select("id, sender_id, content, created_at")
+        .eq("receiver_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      // 3. Fetch system broadcasts
+      const { data: broadcasts } = await supabase
+        .from("admin_broadcasts" as any)
+        .select("id, title, message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      // Extract unique user IDs for profile details
+      const senderIds = Array.from(
+        new Set([
+          ...(interests || []).map((i) => i.sender_id),
+          ...(messages || []).map((m) => m.sender_id),
+        ])
+      );
+
+      let profileMap = new Map<string, { full_name: string; photo_url: string | null }>();
+      if (senderIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, photo_url")
+          .in("user_id", senderIds);
+
+        if (profiles) {
+          profileMap = new Map(profiles.map((p) => [p.user_id, p]));
+        }
       }
 
-      // Fetch sender profiles
-      const senderIds = [...new Set(interests.map((i: any) => i.sender_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, photo_url')
-        .in('user_id', senderIds);
+      const unified: NotificationItem[] = [];
 
-      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
-
-      const notifs: Notification[] = interests.map((interest: any) => {
+      // Map Interests & Matches
+      (interests || []).forEach((interest) => {
         const sender = profileMap.get(interest.sender_id);
-        const name = sender?.full_name || 'Someone';
-        const isMatch = interest.status === 'matched';
+        const name = sender?.full_name || "Someone";
+        const isMatch = interest.status === "matched" || interest.status === "accepted";
 
-        return {
-          id: interest.id,
-          type: isMatch ? 'match' as const : 'interest_received' as const,
-          title: isMatch ? '🎉 New Match!' : '💫 Interest Received',
+        unified.push({
+          id: `interest-${interest.id}`,
+          type: isMatch ? "match" : "interest_received",
+          category: isMatch ? "matches" : "interests",
+          title: isMatch ? "🎉 It's a Match!" : "💕 Interest Received",
           body: isMatch
-            ? `You and ${name} are now matched! Start chatting.`
+            ? `You and ${name} are now connected! Tap to start chatting.`
             : `${name} has shown interest in your profile.`,
           fromUserId: interest.sender_id,
           fromUserName: name,
           fromUserPhoto: sender?.photo_url || null,
-          read: false, // TODO: Track read state in DB
+          read: readSet.has(`interest-${interest.id}`),
           createdAt: interest.created_at,
-        };
+          linkUrl: isMatch ? `/chat/${interest.sender_id}` : `/profile/${interest.sender_id}`,
+        });
       });
 
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter((n) => !n.read).length);
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      // Map Messages
+      (messages || []).forEach((msg) => {
+        const sender = profileMap.get(msg.sender_id);
+        const name = sender?.full_name || "Someone";
+
+        unified.push({
+          id: `msg-${msg.id}`,
+          type: "message",
+          category: "messages",
+          title: `💬 ${name}`,
+          body: msg.content?.slice(0, 75) || "Sent you a message",
+          fromUserId: msg.sender_id,
+          fromUserName: name,
+          fromUserPhoto: sender?.photo_url || null,
+          read: readSet.has(`msg-${msg.id}`),
+          createdAt: msg.created_at,
+          linkUrl: `/chat/${msg.sender_id}`,
+        });
+      });
+
+      // Map System Broadcasts
+      ((broadcasts as any[]) || []).forEach((b) => {
+        unified.push({
+          id: `sys-${b.id}`,
+          type: "system",
+          category: "system",
+          title: `📢 ${b.title || "Announcement"}`,
+          body: b.message || "System update from Banjara Bandhan",
+          fromUserId: null,
+          fromUserName: "Banjara Bandhan",
+          fromUserPhoto: null,
+          read: readSet.has(`sys-${b.id}`),
+          createdAt: b.created_at,
+          linkUrl: "/settings",
+        });
+      });
+
+      // Sort by newest first
+      unified.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setNotifications(unified);
+    } catch (err: any) {
+      console.error("Failed to load notifications:", err);
+      setError("Unable to load notifications.");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, getReadSet]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Real-time subscription for new interests
+  // Real-time listener
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
-      .channel('notifications')
+      .channel(`user-notifications-${user.id}`)
       .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'interests',
-          filter: `receiver_id=eq.${user.id}`,
-        },
-        () => {
-          fetchNotifications(); // Refetch on new interest
-        }
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "interests", filter: `receiver_id=eq.${user.id}` },
+        () => fetchNotifications()
       )
       .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'interests',
-          filter: `sender_id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          if (payload.new?.status === 'matched') {
-            fetchNotifications(); // Refetch when our interest is accepted
-          }
-        }
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` },
+        () => fetchNotifications()
       )
       .subscribe();
 
@@ -137,22 +211,36 @@ export function useNotifications() {
     };
   }, [user, fetchNotifications]);
 
-  const markAsRead = useCallback((notificationId: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  }, []);
+  const markAsRead = useCallback(
+    (notificationId: string) => {
+      if (!user) return;
+      setNotifications((prev) => {
+        const next = prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
+        const readSet = new Set(next.filter((n) => n.read).map((n) => n.id));
+        saveReadSet(user.id, readSet);
+        return next;
+      });
+    },
+    [user, saveReadSet]
+  );
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    setUnreadCount(0);
-  }, []);
+    if (!user) return;
+    setNotifications((prev) => {
+      const next = prev.map((n) => ({ ...n, read: true }));
+      const readSet = new Set(next.map((n) => n.id));
+      saveReadSet(user.id, readSet);
+      return next;
+    });
+  }, [user, saveReadSet]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return {
     notifications,
     unreadCount,
     loading,
+    error,
     markAsRead,
     markAllAsRead,
     refresh: fetchNotifications,

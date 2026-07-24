@@ -11,38 +11,44 @@ import AnimatedRoutes from "@/components/AnimatedRoutes";
 
 const queryClient = new QueryClient();
 
+import { useKeyboardViewport } from "@/hooks/useKeyboardViewport";
+
 /**
  * AppShell — wraps the app in a centered, max-width container on desktop.
  * On mobile (< 640px): full-screen, edge-to-edge.
  * On tablet/laptop/desktop (≥ 640px): centered phone-frame (max 480px wide)
  * with a rich decorative background visible on the sides.
  */
-const AppShell = ({ children }: { children: React.ReactNode }) => (
-  <div
-    style={{
-      width: "100%",
-      minHeight: "100dvh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "flex-start",
-    }}
-  >
+const AppShell = ({ children }: { children: React.ReactNode }) => {
+  useKeyboardViewport();
+
+  return (
     <div
       style={{
         width: "100%",
-        maxWidth: "480px",
         minHeight: "100dvh",
-        position: "relative",
         display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        justifyContent: "center",
+        alignItems: "flex-start",
       }}
-      className="bg-background shadow-[0_0_80px_rgba(0,0,0,0.5)] sm:shadow-[0_0_100px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
     >
-      {children}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          minHeight: "100dvh",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+        className="bg-background shadow-[0_0_80px_rgba(0,0,0,0.5)] sm:shadow-[0_0_100px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
+      >
+        {children}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const App = () => (
   <HelmetProvider>

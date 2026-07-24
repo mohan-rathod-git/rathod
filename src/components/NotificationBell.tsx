@@ -81,36 +81,49 @@ const NotificationBell = () => {
                 <p className="text-sm text-muted-foreground">No notifications yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-border/20">
-                {notifications.slice(0, 15).map((notif) => (
-                  <button
-                    key={notif.id}
-                    onClick={() => handleNotificationClick(notif)}
-                    className={`flex w-full gap-3 p-3.5 text-left transition-colors hover:bg-primary/5 ${
-                      !notif.read ? 'bg-primary/3' : ''
-                    }`}
-                  >
-                    <div className="h-10 w-10 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
-                      {notif.fromUserPhoto ? (
-                        <img src={notif.fromUserPhoto} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs font-bold">
-                          {notif.fromUserName?.charAt(0) || '?'}
-                        </div>
+              <div>
+                <div className="divide-y divide-border/20">
+                  {notifications.slice(0, 5).map((notif) => (
+                    <button
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`flex w-full gap-3 p-3.5 text-left transition-colors hover:bg-primary/5 ${
+                        !notif.read ? 'bg-primary/3' : ''
+                      }`}
+                    >
+                      <div className="h-10 w-10 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
+                        {notif.fromUserPhoto ? (
+                          <img src={notif.fromUserPhoto} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs font-bold">
+                            {notif.fromUserName?.charAt(0) || '?'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{notif.body}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">
+                          {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
+                      {!notif.read && (
+                        <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{notif.body}</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">
-                        {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {!notif.read && (
-                      <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
-                    )}
+                    </button>
+                  ))}
+                </div>
+                <div className="p-2 border-t border-border/30 bg-muted/40 text-center">
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate('/notifications');
+                    }}
+                    className="w-full py-2 text-xs font-bold text-primary hover:underline"
+                  >
+                    View All Notifications →
                   </button>
-                ))}
+                </div>
               </div>
             )}
           </motion.div>

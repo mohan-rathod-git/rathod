@@ -31,6 +31,23 @@
     overflow-x: hidden;
     min-height: 100%;
     min-height: 100dvh;
+    --is-keyboard-open: 0;
+    --keyboard-height: 0px;
+  }
+
+  /* Prevent iOS Safari automatic page zoom on input focus */
+  @media (max-width: 639px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Auto-hide sticky bottom navigation when soft keyboard is active */
+  body.keyboard-open .hide-on-keyboard,
+  body.keyboard-open nav.sticky.bottom-0 {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   /* Desktop layout: center the app with max-width */

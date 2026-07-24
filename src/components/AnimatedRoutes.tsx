@@ -26,6 +26,7 @@ const AboutUs = React.lazy(() => import("@/pages/AboutUs"));
 const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("@/pages/auth/ResetPassword"));
 const NotificationPreferences = React.lazy(() => import("@/pages/NotificationPreferences"));
+const Notifications = React.lazy(() => import("@/pages/Notifications"));
 const FAQSupport = React.lazy(() => import("@/pages/settings/FAQSupport"));
 const LanguageSettings = React.lazy(() => import("@/pages/settings/LanguageSettings"));
 const BlockedUsersSettings = React.lazy(() => import("@/pages/settings/BlockedUsersSettings"));
@@ -119,6 +120,7 @@ const AnimatedRoutes = () => {
         <Route path="/settings/language" element={<PageWrapper><ProtectedRoute><LanguageSettings /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings/blocked" element={<PageWrapper><ProtectedRoute><BlockedUsersSettings /></ProtectedRoute></PageWrapper>} />
         <Route path="/feedback" element={<PageWrapper><ProtectedRoute><FeedbackPage /></ProtectedRoute></PageWrapper>} />
+        <Route path="/notifications" element={<PageWrapper><ProtectedRoute><Notifications /></ProtectedRoute></PageWrapper>} />
         <Route path="/notification-preferences" element={<PageWrapper><ProtectedRoute><NotificationPreferences /></ProtectedRoute></PageWrapper>} />
         <Route path="/legal" element={<PageWrapper><LegalPage /></PageWrapper>} />
         <Route path="/privacy" element={<PageWrapper><LegalPage /></PageWrapper>} />

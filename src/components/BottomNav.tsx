@@ -20,11 +20,14 @@ const BottomNav = () => {
      * We use sticky bottom-0 instead of fixed so it stays within
      * the centered container on desktop rather than spanning the full viewport.
      */
-    <nav className="sticky bottom-0 left-0 right-0 z-50 mt-auto">
+    <nav
+      aria-label="Main navigation"
+      className="sticky bottom-0 left-0 right-0 z-50 mt-auto hide-on-keyboard transition-all duration-300"
+    >
       <div
-        className="bg-card/92 backdrop-blur-2xl border-t border-border/30"
+        className="bg-card/95 backdrop-blur-2xl border-t border-border/30"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingBottom: "max(10px, env(safe-area-inset-bottom, 10px))",
           boxShadow: "0 -4px 24px -4px rgba(0,0,0,0.08)",
         }}
       >
@@ -35,9 +38,11 @@ const BottomNav = () => {
               <motion.button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
-                whileTap={{ scale: 0.85 }}
-                className={`relative flex flex-col items-center gap-0.5 py-2.5 px-4 min-w-0 flex-1 transition-colors duration-300 ${
-                  isActive ? "text-primary" : "text-muted-foreground"
+                whileTap={{ scale: 0.88 }}
+                aria-label={tab.label}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex flex-col items-center gap-0.5 py-2 px-3 min-w-[44px] min-h-[48px] justify-center flex-1 transition-colors duration-300 ${
+                  isActive ? "text-primary font-bold" : "text-muted-foreground font-medium"
                 }`}
               >
                 {/* Active indicator pill */}
