@@ -27,20 +27,23 @@ const BottomNav = () => {
   const { unreadCount } = useNotifications();
 
   return (
-    <nav
-      aria-label="Main navigation"
-      className="bottom-nav-root hide-on-keyboard"
-      style={{
-        position: "sticky",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        marginTop: "auto",
-        flexShrink: 0,
-        /* The nav must be a direct flex child of the page flex-col root */
-      }}
-    >
+    <>
+      {/* Spacer to ensure scrollable content isn't hidden behind the fixed nav */}
+      <div className="hide-on-keyboard shrink-0" style={{ height: "72px", width: "100%" }} />
+
+      <nav
+        aria-label="Main navigation"
+        className="bottom-nav-root hide-on-keyboard"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "100%",
+          maxWidth: "480px",
+          zIndex: 50,
+        }}
+      >
       <div
         style={{
           paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))",
@@ -124,6 +127,7 @@ const BottomNav = () => {
         </div>
       </div>
     </nav>
+    </>
   );
 };
 
