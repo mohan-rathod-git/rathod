@@ -84,15 +84,21 @@ export const AdminLandingContent = () => {
     const ext = file.name.split('.').pop() || 'jpg';
     const path = `landing/hero-${Date.now()}.${ext}`;
 
-    const result = await uploadWithQuotaCheck(file, user.id, path, 'avatars', { upsert: true });
+    const result = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true, cacheControl: '3600' });
 
     setUploadingPhoto(false);
-    if (!result.success || !result.publicUrl) {
-      toast.error(result.error || 'Photo upload failed');
+    if (result.error) {
+      toast.error(`Upload failed: ${result.error.message}`);
       return;
     }
 
-    setForm((p) => ({ ...p, hero_photo_url: result.publicUrl! }));
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(path);
+
+    setForm((p) => ({ ...p, hero_photo_url: publicUrl }));
     toast.success('Hero photo uploaded!');
   };
 

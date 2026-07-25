@@ -180,31 +180,54 @@ const AdminLayout = () => {
       </AnimatePresence>
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-64 overflow-y-auto">
-        {/* Top bar (mobile) */}
+      <main className="flex-1 lg:ml-64 overflow-y-auto relative">
+        {/* Top bar */}
         <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border/30 px-4 pt-8 pb-3 lg:pt-4 flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden h-10 w-10 flex items-center justify-center rounded-xl bg-muted"
+            className="lg:hidden h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl bg-muted"
           >
             <Menu className="h-4.5 w-4.5" />
           </button>
+          
+          <button
+            onClick={() => window.history.back()}
+            className="h-10 w-10 flex flex-shrink-0 items-center justify-center rounded-xl bg-muted hover:bg-muted/80 text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4.5 w-4.5" />
+          </button>
 
           {/* Breadcrumbs */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground overflow-x-auto">
+          <div className="flex flex-1 items-center gap-1.5 text-xs text-muted-foreground overflow-x-auto">
             {breadcrumbs.map((crumb, i) => (
               <span key={crumb.path} className="flex items-center gap-1.5 whitespace-nowrap">
                 {i > 0 && <ChevronRight className="h-3 w-3" />}
-                <span className={i === breadcrumbs.length - 1 ? 'text-foreground font-semibold' : ''}>
+                <NavLink 
+                  to={crumb.path}
+                  end={crumb.path === '/admin'}
+                  className={({ isActive }) => 
+                    isActive || i === breadcrumbs.length - 1
+                      ? 'text-foreground font-semibold cursor-default' 
+                      : 'hover:text-foreground transition-colors'
+                  }
+                >
                   {crumb.label}
-                </span>
+                </NavLink>
               </span>
             ))}
           </div>
+
+          <NavLink
+            to="/"
+            className="hidden lg:flex flex-shrink-0 items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-muted hover:bg-muted/80 text-foreground transition-all"
+          >
+            <span>Back to App</span>
+            <ChevronRight className="h-4 w-4" />
+          </NavLink>
         </div>
 
         {/* Page content */}
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 pb-24">
           <Outlet />
         </div>
       </main>

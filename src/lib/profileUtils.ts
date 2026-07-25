@@ -49,6 +49,10 @@ export function getPostAuthRoute(profile: any | null) {
   if (!profile) return "/register";
 
   const step = profile.registration_step ?? 1;
+  const completion = profile.profile_completion ?? 0;
+
+  // If the user has explicitly reached step 4, or their profile is mostly complete, they are done
+  if (step >= 4 || completion > 80) return "/";
 
   if (step < 2) return "/register";
   if (step === 2) return "/register/step2";
@@ -56,3 +60,4 @@ export function getPostAuthRoute(profile: any | null) {
 
   return "/";
 }
+

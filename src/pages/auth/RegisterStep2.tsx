@@ -25,11 +25,19 @@ const RegisterStep2 = () => {
 
   const set = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
 
-  // Redirect to login if no user after auth loading completes
+  // Redirect to login if no user, or to home if already complete
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) return;
+    
+    if (!user) {
       toast.error("Please log in to continue registration");
       navigate("/login", { replace: true });
+      return;
+    }
+
+    const { profile } = user;
+    if (profile && (profile.registration_step >= 4 || profile.profile_completion > 80)) {
+      navigate("/", { replace: true });
     }
   }, [authLoading, user, navigate]);
 
@@ -68,6 +76,20 @@ const RegisterStep2 = () => {
       console.error("Save error:", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await ensureProfileRow(user, { registration_step: 4 });
+      await refreshProfile();
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
       setLoading(false);
     }
   };
@@ -183,11 +205,15 @@ const RegisterStep2 = () => {
           <span className="text-[10px] text-muted-foreground tabular-nums">{form.about.length} characters</span>
         </div>
 
-        <div className="pt-2 animate-fade-up-4">
+        <div className="pt-4 animate-fade-up-4 space-y-3">
           <Button type="submit" disabled={loading}
             className="w-full h-13 rounded-2xl text-sm font-semibold gradient-saffron border-0 text-white shadow-glow-primary active:scale-[0.97] transition-transform">
             {loading ? "Saving..." : <span className="flex items-center gap-2">Continue <ArrowRight className="h-4 w-4" /></span>}
           </Button>
+          
+          <button type="button" onClick={handleSkip} disabled={loading} className="w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors p-2">
+            Skip for now, I'll do this later
+          </button>
         </div>
       </form>
     </div>

@@ -71,10 +71,9 @@
     display: none;
   }
 
-  /* Desktop layout: center the app with max-width */
+  /* ─── App Shell Layout System ─── */
   #root {
     width: 100%;
-    min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -82,7 +81,30 @@
     position: relative;
   }
 
-  /* Desktop decorative background behind the app card */
+  /*
+   * MOBILE (<640px): Full-screen, edge-to-edge
+   */
+  .app-shell-outer {
+    width: 100%;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .app-shell-inner {
+    width: 100%;
+    min-height: 100dvh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /*
+   * TABLET (640–1023px): Centered card, max 520px
+   * Decorative warm gradient visible on the sides
+   */
   @media (min-width: 640px) {
     html, body {
       background: radial-gradient(ellipse at 50% 30%, hsl(355 60% 18%) 0%, hsl(14 50% 10%) 40%, hsl(20 15% 5%) 100%);
@@ -90,6 +112,39 @@
     #root {
       align-items: center;
       background: transparent;
+    }
+    .app-shell-outer {
+      align-items: flex-start;
+    }
+    .app-shell-inner {
+      max-width: 520px;
+      background: hsl(var(--background));
+      box-shadow: 0 0 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+  }
+
+  /*
+   * DESKTOP (≥1024px): Full-width, real desktop experience
+   * No phone frame — proper wide layout
+   */
+  @media (min-width: 1024px) {
+    html, body {
+      background: hsl(var(--background));
+    }
+    #root {
+      align-items: stretch;
+    }
+    .app-shell-outer {
+      display: contents; /* Pass through — no centering wrapper */
+    }
+    .app-shell-inner {
+      max-width: none; /* Remove phone frame cap */
+      width: 100%;
+      box-shadow: none;
+    }
+    /* Hide mobile bottom nav on desktop */
+    .bottom-nav-root {
+      display: none !important;
     }
   }
 

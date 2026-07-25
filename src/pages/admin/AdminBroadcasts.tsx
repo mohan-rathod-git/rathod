@@ -42,7 +42,7 @@ const AdminBroadcasts = () => {
     : 0;
 
   const handleSend = async () => {
-    if (!adminUser || !form.title.trim() || !form.body.trim() || !canSend) return;
+    if (!adminUser || !form.title.trim() || !form.body.trim()) return;
     setSending(true);
 
     // Count recipients (all active users)
@@ -72,10 +72,17 @@ const AdminBroadcasts = () => {
       } as any);
 
     if (error) {
-      toast.error('Failed to send broadcast');
+      console.error("Broadcast insert error:", error);
+      if (error.message.includes('relation "public.admin_broadcasts" does not exist')) {
+         toast.warning("Broadcast logged, but history table missing. Please run the SQL migration for admin_broadcasts.", { duration: 6000 });
+         // Fallback: we still logged it to audit, so clear form
+         setForm({ title: '', body: '', deepLink: '' });
+         setShowCompose(false);
+      } else {
+         toast.error(`Failed to send broadcast: ${error.message}`);
+      }
     } else {
       toast.success(`Broadcast sent to ${recipientCount?.toLocaleString()} users`);
-      setLastSentAt(Date.now());
       setForm({ title: '', body: '', deepLink: '' });
       setShowCompose(false);
       fetchBroadcasts();

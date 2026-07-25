@@ -20,21 +20,20 @@ const queryClient = new QueryClient({
 });
 
 /**
- * AppShell — wraps the app in a centered, max-width container on desktop.
- * On mobile (< 640px): full-screen, edge-to-edge.
- * On tablet/laptop/desktop (≥ 640px): centered phone-frame (max 480px wide)
- * with a rich decorative background visible on the sides.
+ * AppShell — Responsive layout shell.
  *
- * Admin routes bypass the 480px constraint — AdminLayout uses position:fixed
- * to cover the full viewport independently.
+ * Breakpoints:
+ * - Mobile  (<640px):  Full-screen, edge-to-edge phone layout
+ * - Tablet  (640–1023px): Centered card, max 520px, decorative bg on sides
+ * - Desktop (≥1024px): Full-width, no phone frame — proper desktop layout
+ * - Admin routes: Always full-width (AdminLayout uses position:fixed)
  */
 const AppShell = ({ children }: { children: React.ReactNode }) => {
   useKeyboardViewport();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  // Admin routes: simple full-width pass-through wrapper
-  // AdminLayout takes over with position:fixed to fill the viewport
+  // Admin and desktop-full-width routes: transparent full-width pass-through
   if (isAdminRoute) {
     return (
       <div style={{ width: "100%", minHeight: "100dvh", position: "relative" }}>
@@ -44,30 +43,8 @@ const AppShell = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div
-      style={{
-        width: "100%",
-        minHeight: "100dvh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start",
-        overflowX: "hidden",
-      }}
-    >
-      <div
-        id="app-shell-inner"
-        style={{
-          width: "100%",
-          maxWidth: "480px",
-          minHeight: "100dvh",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          overflowX: "hidden",
-          /* NOTE: overflow-y must NOT be hidden — it breaks sticky BottomNav */
-        }}
-        className="bg-background shadow-[0_0_80px_rgba(0,0,0,0.5)] sm:shadow-[0_0_100px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
-      >
+    <div className="app-shell-outer">
+      <div id="app-shell-inner" className="app-shell-inner">
         {children}
       </div>
     </div>
