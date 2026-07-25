@@ -5,7 +5,41 @@ import { useEffect, useState } from "react";
  *
  * Manages virtual keyboard opening/closing, visual viewport shifts,
  * input auto-scroll-into-view, and CSS custom property injection.
+ *
+ * Fixes:
+ * - Only activates for TEXT inputs (not range sliders, checkboxes, etc.)
+ * - Uses Visual Viewport API as primary signal (most reliable on mobile)
+ * - Falls back to focusin/focusout events for browsers without Visual Viewport API
+ * - Prevents scrollIntoView from fighting with AppShell overflow
  */
+
+// Input types that actually open the soft keyboard
+const TEXT_INPUT_TYPES = new Set([
+  "text", "email", "tel", "password", "number", "search", "url",
+  "date", "time", "datetime-local", "month", "week",
+]);
+
+function isKeyboardInput(el: Element | null): boolean {
+  if (!el) return false;
+  if (el.tagName === "TEXTAREA") return true;
+  if (el.getAttribute("contenteditable") === "true") return true;
+  if (el.tagName === "INPUT") {
+    const type = (el as HTMLInputElement).type || "text";
+    return TEXT_INPUT_TYPES.has(type.toLowerCase());
+  }
+  return false;
+}
+
+function setKeyboardCSSVars(active: boolean, heightPx: number) {
+  document.body.style.setProperty("--keyboard-height", `${heightPx}px`);
+  document.body.style.setProperty("--is-keyboard-open", active ? "1" : "0");
+  if (active) {
+    document.body.classList.add("keyboard-open");
+  } else {
+    document.body.classList.remove("keyboard-open");
+  }
+}
+
 export function useKeyboardViewport() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -13,107 +47,82 @@ export function useKeyboardViewport() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const handleViewportChange = () => {
-      const vv = window.visualViewport;
+    // ─── Visual Viewport API (primary — Chrome 61+, Safari 13+) ───
+    const vv = window.visualViewport;
+    let lastWindowHeight = window.innerHeight;
+
+    const handleViewportResize = () => {
       if (!vv) return;
+      const heightDiff = lastWindowHeight - vv.height;
+      // > 150px difference strongly indicates the keyboard is open
+      const active = heightDiff > 150;
+      const kbHeight = active ? Math.max(0, heightDiff) : 0;
 
-      const windowHeight = window.innerHeight;
-      const currentHeight = vv.height;
-      const heightDiff = windowHeight - currentHeight;
-
-      // Threshold of 120px indicates virtual keyboard is active
-      const activeElement = document.activeElement;
-      const isInputFocused =
-        activeElement &&
-        (activeElement.tagName === "INPUT" ||
-          activeElement.tagName === "TEXTAREA" ||
-          activeElement.getAttribute("contenteditable") === "true");
-
-      const keyboardActive = heightDiff > 120 || Boolean(isInputFocused);
-
-      setIsKeyboardOpen(keyboardActive);
-      setKeyboardHeight(keyboardActive ? Math.max(0, heightDiff) : 0);
-
-      // Inject CSS properties on body for responsive layout math
-      if (keyboardActive) {
-        document.body.classList.add("keyboard-open");
-        document.body.style.setProperty("--keyboard-height", `${Math.max(0, heightDiff)}px`);
-        document.body.style.setProperty("--is-keyboard-open", "1");
-      } else {
-        document.body.classList.remove("keyboard-open");
-        document.body.style.setProperty("--keyboard-height", "0px");
-        document.body.style.setProperty("--is-keyboard-open", "0");
-      }
+      setIsKeyboardOpen(active);
+      setKeyboardHeight(kbHeight);
+      setKeyboardCSSVars(active, kbHeight);
     };
 
+    // ─── Focus Events (fallback / supplement) ───
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null;
-      if (!target) return;
+      if (!isKeyboardInput(target)) return; // Skip sliders, checkboxes, etc.
 
-      const isInput =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.getAttribute("contenteditable") === "true";
+      setIsKeyboardOpen(true);
+      document.body.classList.add("keyboard-open");
+      document.body.style.setProperty("--is-keyboard-open", "1");
 
-      if (isInput) {
-        document.body.classList.add("keyboard-open");
-        document.body.style.setProperty("--is-keyboard-open", "1");
-        setIsKeyboardOpen(true);
-
-        // Smoothly scroll active input into center view after soft keyboard animation
-        setTimeout(() => {
+      // Scroll focused input into view after keyboard animation settles
+      // Use a short delay and requestAnimationFrame to avoid layout thrash
+      setTimeout(() => {
+        requestAnimationFrame(() => {
           try {
-            target.scrollIntoView({
+            target?.scrollIntoView({
               behavior: "smooth",
               block: "center",
               inline: "nearest",
             });
           } catch {
-            // Fallback for older WebViews
-            target.scrollIntoView(false);
+            target?.scrollIntoView(false);
           }
-        }, 300);
-      }
+        });
+      }, 350);
     };
 
-    const handleFocusOut = () => {
-      setTimeout(() => {
-        const activeElement = document.activeElement;
-        const isStillInputFocused =
-          activeElement &&
-          (activeElement.tagName === "INPUT" ||
-            activeElement.tagName === "TEXTAREA" ||
-            activeElement.getAttribute("contenteditable") === "true");
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!isKeyboardInput(target)) return; // Only handle text input blur
 
-        if (!isStillInputFocused) {
-          document.body.classList.remove("keyboard-open");
-          document.body.style.setProperty("--keyboard-height", "0px");
-          document.body.style.setProperty("--is-keyboard-open", "0");
+      // Wait for potential focus transfer (e.g., user taps another input)
+      setTimeout(() => {
+        const activeEl = document.activeElement;
+        if (!isKeyboardInput(activeEl)) {
           setIsKeyboardOpen(false);
           setKeyboardHeight(0);
+          setKeyboardCSSVars(false, 0);
         }
-      }, 150);
+      }, 200);
     };
 
     window.addEventListener("focusin", handleFocusIn);
     window.addEventListener("focusout", handleFocusOut);
 
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", handleViewportChange);
-      window.visualViewport.addEventListener("scroll", handleViewportChange);
+    if (vv) {
+      vv.addEventListener("resize", handleViewportResize);
+      vv.addEventListener("scroll", handleViewportResize);
     }
 
     return () => {
       window.removeEventListener("focusin", handleFocusIn);
       window.removeEventListener("focusout", handleFocusOut);
 
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", handleViewportChange);
-        window.visualViewport.removeEventListener("scroll", handleViewportChange);
+      if (vv) {
+        vv.removeEventListener("resize", handleViewportResize);
+        vv.removeEventListener("scroll", handleViewportResize);
       }
-      document.body.classList.remove("keyboard-open");
-      document.body.style.setProperty("--keyboard-height", "0px");
-      document.body.style.setProperty("--is-keyboard-open", "0");
+
+      // Cleanup CSS state
+      setKeyboardCSSVars(false, 0);
     };
   }, []);
 

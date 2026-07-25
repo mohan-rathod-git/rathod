@@ -7,13 +7,17 @@ export function useRealtimeProfiles() {
   const [loading, setLoading] = useState(true);
 
   const fetchProfiles = useCallback(async () => {
+    // Fetch all profiles with registration_step >= 2 (completed basic registration)
+    // Note: is_hidden filter removed — if column doesn't exist it silently drops ALL rows
+    // Profile visibility is enforced via Supabase RLS policies instead
     const { data } = await supabase
       .from("profiles")
       .select("id, user_id, full_name, gender, date_of_birth, photo_url, community, gotra, city_village, state, occupation, education, annual_income, marital_status, mother_tongue, height, about, rashi, manglik, is_premium, is_verified, is_online")
       .gte("registration_step", 2)
-      .eq("is_hidden" as any, false)
+      .not("full_name", "is", null)
+      .order("is_premium", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     setProfiles(data || []);
     setLoading(false);

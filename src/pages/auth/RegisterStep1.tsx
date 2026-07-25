@@ -64,16 +64,39 @@ const RegisterStep1 = () => {
     e.preventDefault();
 
     const registerSchema = z.object({
-      fullName: z.string().min(2, "Name must be at least 2 characters"),
+      fullName: z.string()
+        .min(2, "Name must be at least 2 characters")
+        .max(60, "Name must be under 60 characters")
+        .regex(/^[\p{L}\s'-]+$/u, "Name can only contain letters, spaces, hyphens and apostrophes"),
       gender: z.string().min(1, "Please select a gender"),
-      email: isReturningUser ? z.string().optional().or(z.literal('')) : z.string().email("Please enter a valid email address"),
-      password: isReturningUser ? z.string().optional().or(z.literal('')) : z.string().min(6, "Password must be at least 6 characters"),
-      dateOfBirth: z.string().optional(),
+      email: isReturningUser
+        ? z.string().optional().or(z.literal(''))
+        : z.string().email("Please enter a valid email address").max(100, "Email too long"),
+      password: isReturningUser
+        ? z.string().optional().or(z.literal(''))
+        : z.string()
+            .min(8, "Password must be at least 8 characters")
+            .max(128, "Password too long"),
+      dateOfBirth: z.string().optional().refine((val) => {
+        if (!val) return true;
+        const dob = new Date(val);
+        if (isNaN(dob.getTime())) return false;
+        const age = Math.floor((Date.now() - dob.getTime()) / 31557600000);
+        return age >= 18 && age <= 100;
+      }, "You must be at least 18 years old to register"),
       state: z.string().optional(),
-      cityVillage: z.string().optional(),
+      cityVillage: z.string().max(80, "City/village name too long").optional(),
     });
 
-    const validation = registerSchema.safeParse(form);
+    // Sanitize inputs before validation
+    const sanitizedForm = {
+      ...form,
+      fullName: form.fullName.trim().replace(/\s+/g, " "),
+      email: form.email.trim().toLowerCase(),
+      cityVillage: form.cityVillage.trim(),
+    };
+
+    const validation = registerSchema.safeParse(sanitizedForm);
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
@@ -83,25 +106,25 @@ const RegisterStep1 = () => {
     try {
       if (isReturningUser) {
         // User is already logged in, just update profile and move to step 2
-          await handleUpdateProfile(user);
+        await handleUpdateProfile(user);
         toast.success("Profile updated!");
         navigate("/register/step2");
       } else {
         // New user signup flow
-        // New user signup flow
-
-
         const { data, error } = await supabase.auth.signUp({
-          email: form.email,
+          email: sanitizedForm.email,
           password: form.password,
           options: {
-            data: { full_name: form.fullName },
+            data: { full_name: sanitizedForm.fullName },
             emailRedirectTo: window.location.origin,
           },
         });
 
         if (error) {
-          toast.error(error.message);
+          // Generic error to hide auth implementation details
+          toast.error(error.message.includes("already registered")
+            ? "An account with this email already exists. Please sign in."
+            : "Failed to create account. Please try again.");
           setLoading(false);
           return;
         }
@@ -114,7 +137,7 @@ const RegisterStep1 = () => {
 
         if (!data.session) {
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: form.email, password: form.password,
+            email: sanitizedForm.email, password: form.password,
           });
           if (signInError) {
             toast.success("Account created! Please check your email to verify, then log in.");

@@ -134,7 +134,9 @@ const AdminLayout = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    // Admin layout breaks out of the 480px AppShell constraint using fixed positioning
+    // This ensures the admin panel spans the full viewport width
+    <div className="fixed inset-0 z-[200] bg-background flex overflow-hidden">
       {/* ADMIN VIEW watermark */}
       <div className="fixed top-0 left-0 right-0 z-[100] pointer-events-none flex justify-center">
         <div className="bg-amber-500/90 text-white text-[10px] font-bold tracking-widest uppercase px-4 py-0.5 rounded-b-lg shadow-md">
@@ -143,7 +145,7 @@ const AdminLayout = () => {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:border-border/30 lg:bg-card/50 lg:backdrop-blur-sm fixed h-full z-30">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:border-border/30 lg:bg-card/50 lg:backdrop-blur-sm flex-shrink-0 overflow-y-auto">
         <NavContent />
       </aside>
 
@@ -178,7 +180,7 @@ const AdminLayout = () => {
       </AnimatePresence>
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-64">
+      <main className="flex-1 lg:ml-64 overflow-y-auto">
         {/* Top bar (mobile) */}
         <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border/30 px-4 pt-8 pb-3 lg:pt-4 flex items-center gap-3">
           <button

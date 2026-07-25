@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users, UserPlus, Heart, MessageCircle, ShieldCheck, Flag, Wifi,
@@ -21,6 +22,7 @@ interface MetricCard {
 }
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState({
     totalUsers: null as number | null,
     newSignupsToday: null as number | null,
@@ -151,15 +153,15 @@ const AdminDashboard = () => {
         <h2 className="font-heading text-lg font-bold text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Review Verifications', href: '/admin/verification', icon: ShieldCheck, count: metrics.pendingVerifications },
-            { label: 'View Reports', href: '/admin/reports', icon: Flag, count: metrics.openReports },
-            { label: 'Manage Users', href: '/admin/users', icon: Users },
-            { label: 'Send Broadcast', href: '/admin/broadcasts', icon: MessageCircle },
+            { label: 'Review Verifications', path: '/admin/verification', icon: ShieldCheck, count: metrics.pendingVerifications },
+            { label: 'View Reports', path: '/admin/reports', icon: Flag, count: metrics.openReports },
+            { label: 'Manage Users', path: '/admin/users', icon: Users },
+            { label: 'Send Broadcast', path: '/admin/broadcasts', icon: MessageCircle },
           ].map((action) => (
-            <a
+            <button
               key={action.label}
-              href={action.href}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border/30 hover:border-primary/30 hover:shadow-soft transition-all text-center group"
+              onClick={() => navigate(action.path)}
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border/30 hover:border-primary/30 hover:shadow-soft transition-all text-center group cursor-pointer"
             >
               <action.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="text-xs font-semibold text-foreground">{action.label}</span>
@@ -168,7 +170,7 @@ const AdminDashboard = () => {
                   {action.count} pending
                 </span>
               )}
-            </a>
+            </button>
           ))}
         </div>
       </div>

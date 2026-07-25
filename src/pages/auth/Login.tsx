@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, Phone, ShieldCheck, RefreshCw, KeyRound } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Phone, ShieldCheck, RefreshCw, KeyRound } from "lucide-react";
 import { getPostAuthRoute } from "@/lib/profileUtils";
 import { ensureProfileRow } from "@/lib/profilePersistence";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,12 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
+import { checkRateLimit, recordFailedAttempt, clearRateLimit, formatLockoutMessage } from "@/lib/rateLimiter";
+
+/** Sanitize user input: trim whitespace and remove control characters */
+function sanitizeInput(value: string): string {
+  return value.trim().replace(/[\x00-\x1F\x7F]/g, "");
+}
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -96,15 +102,35 @@ const Login = () => {
 
   // 1. Email + Password Login via Supabase
   const onSubmitEmailPassword = async (values: LoginFormValues) => {
-    const { email, password } = values;
+    const email = sanitizeInput(values.email);
+    const password = values.password; // Don't trim passwords
+
+    // Check rate limit before attempting login
+    const rateCheck = checkRateLimit(email);
+    if (!rateCheck.allowed) {
+      toast.error(formatLockoutMessage(rateCheck.secondsRemaining!));
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+
     if (error) {
-      toast.error(error.message);
+      const remaining = recordFailedAttempt(email);
+      // Generic error message — do not reveal whether email or password is wrong
+      if (remaining === 0) {
+        toast.error("Too many failed attempts. Account temporarily locked for 15 minutes.");
+      } else if (remaining <= 2) {
+        toast.error(`Invalid email or password. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before lockout.`);
+      } else {
+        toast.error("Invalid email or password. Please try again.");
+      }
       return;
     }
+
     if (data.user) {
+      clearRateLimit(email); // Clear on successful login
       await handlePostLogin(data.user);
     }
   };
@@ -112,25 +138,27 @@ const Login = () => {
   // 2. Email OTP via Supabase (signInWithOtp)
   const handleSendEmailOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpEmail || !otpEmail.includes("@")) {
+    const cleanEmail = sanitizeInput(otpEmail);
+    if (!cleanEmail || !cleanEmail.includes("@")) {
       toast.error("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
-      email: otpEmail.trim(),
+      email: cleanEmail,
     });
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || "Failed to send email OTP");
+      toast.error("Failed to send OTP. Please check your email and try again.");
       return;
     }
 
+    setOtpEmail(cleanEmail); // Update state with sanitized version
     setEmailOtpSent(true);
     setResendTimer(60);
-    toast.success(`OTP code sent to ${otpEmail}! Check your inbox.`);
+    toast.success(`OTP code sent to ${cleanEmail}! Check your inbox.`);
   };
 
   const handleVerifyEmailOtp = async (e: React.FormEvent) => {
@@ -164,6 +192,11 @@ const Login = () => {
     const cleanPhone = phone.trim();
     if (!cleanPhone || cleanPhone.length < 10) {
       toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    if (cleanPhone !== "8088291011") {
+      toast.error("Mobile OTP login is currently restricted to administrators only.");
       return;
     }
 

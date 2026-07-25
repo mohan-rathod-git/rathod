@@ -24,12 +24,20 @@ const Explore = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const { profiles, loading } = useRealtimeProfiles();
-  const { user } = useAuth();
+  const { user, profile: myProfile } = useAuth();
 
   const chips = ["All", ...COMMUNITIES];
 
   const filtered = profiles
     .filter((p) => p.user_id !== user?.id)
+    // Gender-based filtering: show opposite gender by default (matrimony context)
+    .filter((p) => {
+      if (!myProfile?.gender) return true;
+      const myGender = myProfile.gender.toLowerCase();
+      const oppositeGender = myGender === "male" ? "female" : myGender === "female" ? "male" : null;
+      if (!oppositeGender) return true;
+      return (p.gender || "").toLowerCase() === oppositeGender;
+    })
     .filter((p) => activeChip === "All" || p.community === activeChip)
     .filter((p) => {
       if (!searchQuery.trim()) return true;

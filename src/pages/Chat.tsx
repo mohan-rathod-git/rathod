@@ -173,8 +173,25 @@ const Chat = () => {
       return;
     }
 
+    // Sanitize: strip HTML/script tags and limit length
+    const sanitized = text
+      .trim()
+      .replace(/<[^>]*>/g, "") // Strip HTML tags (XSS prevention)
+      .replace(/javascript:/gi, "") // Strip javascript: URIs
+      .slice(0, 1000); // Enforce 1000 character limit
+
+    if (!sanitized) {
+      setText("");
+      return;
+    }
+
+    if (text.length > 1000) {
+      toast.error("Message too long. Maximum 1000 characters.");
+      return;
+    }
+
     // Moderation check
-    const modResult = moderateText(text.trim());
+    const modResult = moderateText(sanitized);
     const contentToSend = modResult.sanitizedText;
 
     const isFirstMessage = messages.length === 0;

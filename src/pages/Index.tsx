@@ -42,6 +42,16 @@ const Index = () => {
 
   const applyFilters = (list: any[]) => {
     let result = list;
+
+    // Gender-based filtering: show opposite gender by default (matrimony context)
+    if (profile?.gender) {
+      const myGender = profile.gender.toLowerCase();
+      const oppositeGender = myGender === "male" ? "female" : myGender === "female" ? "male" : null;
+      if (oppositeGender) {
+        result = result.filter((p) => (p.gender || "").toLowerCase() === oppositeGender);
+      }
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((p) =>
