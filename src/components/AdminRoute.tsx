@@ -81,23 +81,29 @@ const AdminRoute = ({ children, requiredRole = 'moderator' }: AdminRouteProps) =
   // Access denied — not an admin
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6">
-        <div className="max-w-sm w-full text-center space-y-4">
-          <div className="mx-auto h-16 w-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
-            <ShieldAlert className="h-8 w-8 text-destructive" />
-          </div>
-          <h2 className="font-heading text-xl font-bold text-foreground">Access Denied</h2>
-          <p className="text-sm text-muted-foreground">
-            You don't have permission to access the admin dashboard.
-            {role && <> Your current role is <strong>{role}</strong>, but this page requires <strong>{requiredRole}</strong> or higher.</>}
-          </p>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-muted px-6 py-3 text-sm font-bold text-foreground"
-          >
-            Return to App
-          </a>
-        </div>
+      <div
+        className="fixed inset-0 z-[300] flex flex-col items-center justify-center"
+        style={{ background: "#000" }}
+      >
+        {/* Z+ Security image at natural size */}
+        <img
+          src="/admin-access-denied.png"
+          alt="Z+ Security — Access Denied for Banjara Bandhan"
+          style={{
+            display: "block",
+            maxWidth: "100%",
+            width: "auto",
+            height: "auto",
+            maxHeight: "90vh",
+          }}
+          draggable={false}
+        />
+        <a
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md px-6 py-3 text-sm font-bold text-white hover:bg-white/20 transition-all"
+        >
+          ← Return to App
+        </a>
       </div>
     );
   }

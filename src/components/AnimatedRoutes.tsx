@@ -1,8 +1,10 @@
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect, Suspense, useState } from "react";
 import { Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
+import { useAdminRole } from "@/hooks/useAdminRole";
+import { supabase } from "@/integrations/supabase/client";
 import Splash from "@/pages/Splash";
 import Index from "@/pages/Index";
 import Login from "@/pages/auth/Login";
@@ -25,6 +27,7 @@ const SuccessStories = React.lazy(() => import("@/pages/SuccessStories"));
 const AboutUs = React.lazy(() => import("@/pages/AboutUs"));
 const ForgotPassword = React.lazy(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("@/pages/auth/ResetPassword"));
+const AuthCallback = React.lazy(() => import("@/pages/auth/AuthCallback"));
 const NotificationPreferences = React.lazy(() => import("@/pages/NotificationPreferences"));
 const Notifications = React.lazy(() => import("@/pages/Notifications"));
 const FAQSupport = React.lazy(() => import("@/pages/settings/FAQSupport"));
@@ -36,6 +39,7 @@ const DeleteAccount = React.lazy(() => import("@/pages/settings/DeleteAccount"))
 const VerifyProfile = React.lazy(() => import("@/pages/VerifyProfile"));
 const AdminVerification = React.lazy(() => import("@/pages/admin/AdminVerification"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
+const UnderDevelopment = React.lazy(() => import("@/pages/UnderDevelopment"));
 
 // Admin pages — lazy loaded, behind AdminRoute guard
 const AdminLayout = React.lazy(() => import("@/pages/admin/AdminLayout"));
@@ -46,6 +50,7 @@ const AdminBroadcasts = React.lazy(() => import("@/pages/admin/AdminBroadcasts")
 const AdminAnalytics = React.lazy(() => import("@/pages/admin/AdminAnalytics"));
 const AdminAuditLog = React.lazy(() => import("@/pages/admin/AdminAuditLog"));
 const AdminLandingContent = React.lazy(() => import("@/pages/admin/AdminLandingContent"));
+const AdminUnderDevelopment = React.lazy(() => import("@/pages/admin/AdminUnderDevelopment"));
 
 
 const pageVariants = {
@@ -85,6 +90,57 @@ const getRouteKey = (pathname: string): string => {
   return pathname;
 };
 
+/**
+ * UnderDevelopmentGuard — Wraps a page component.
+ *
+ * Checks if the current route is marked as "under development" in Supabase.
+ * - If the route is enabled AND the user is NOT an admin/moderator → shows UnderDevelopment page
+ * - Otherwise → renders children normally
+ * - Admins ALWAYS see the real content
+ */
+const UnderDevelopmentGuard = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  const { isModerator } = useAdminRole();
+  const [isUnderDev, setIsUnderDev] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Admins bypass the check entirely
+    if (isModerator) {
+      setIsUnderDev(false);
+      return;
+    }
+
+    const checkRoute = async () => {
+      try {
+        const { data } = await supabase
+          .from("under_development_routes" as any)
+          .select("enabled")
+          .eq("path", location.pathname)
+          .maybeSingle();
+
+        setIsUnderDev(!!(data as any)?.enabled);
+      } catch {
+        setIsUnderDev(false);
+      }
+    };
+
+    checkRoute();
+  }, [location.pathname, isModerator]);
+
+  // Still checking — render nothing briefly (avoids flash)
+  if (isUnderDev === null) return null;
+
+  if (isUnderDev) {
+    return (
+      <Suspense fallback={null}>
+        <UnderDevelopment />
+      </Suspense>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 const AnimatedRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -105,22 +161,24 @@ const AnimatedRoutes = () => {
         <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
         <Route path="/forgot-password" element={<PageWrapper><ForgotPassword /></PageWrapper>} />
         <Route path="/reset-password" element={<PageWrapper><ResetPassword /></PageWrapper>} />
+        {/* Dedicated OAuth / email-link callback handler */}
+        <Route path="/auth/callback" element={<PageWrapper><AuthCallback /></PageWrapper>} />
         <Route path="/register" element={<PageWrapper><RegisterStep1 /></PageWrapper>} />
         <Route path="/register/step2" element={<PageWrapper><ProtectedRoute><RegisterStep2 /></ProtectedRoute></PageWrapper>} />
         <Route path="/register/step3" element={<PageWrapper><ProtectedRoute><RegisterStep3 /></ProtectedRoute></PageWrapper>} />
         <Route path="/" element={<PageWrapper><ProtectedRoute><Index /></ProtectedRoute></PageWrapper>} />
-        <Route path="/explore" element={<PageWrapper><ProtectedRoute><Explore /></ProtectedRoute></PageWrapper>} />
-        <Route path="/profile/:id" element={<PageWrapper><ProtectedRoute><ProfileDetail /></ProtectedRoute></PageWrapper>} />
-        <Route path="/matches" element={<PageWrapper><ProtectedRoute><Matches /></ProtectedRoute></PageWrapper>} />
-        <Route path="/messages" element={<PageWrapper><ProtectedRoute><Messages /></ProtectedRoute></PageWrapper>} />
+        <Route path="/explore" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Explore /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/profile/:id" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><ProfileDetail /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/matches" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Matches /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/messages" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Messages /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
         <Route path="/chat/:partnerId" element={<PageWrapper><ProtectedRoute><Chat /></ProtectedRoute></PageWrapper>} />
-        <Route path="/my-profile" element={<PageWrapper><ProtectedRoute><MyProfile /></ProtectedRoute></PageWrapper>} />
-        <Route path="/edit-profile" element={<PageWrapper><ProtectedRoute><EditProfile /></ProtectedRoute></PageWrapper>} />
-        <Route path="/settings" element={<PageWrapper><ProtectedRoute><Settings /></ProtectedRoute></PageWrapper>} />
+        <Route path="/my-profile" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><MyProfile /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/edit-profile" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><EditProfile /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/settings" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Settings /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
         <Route path="/settings/language" element={<PageWrapper><ProtectedRoute><LanguageSettings /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings/blocked" element={<PageWrapper><ProtectedRoute><BlockedUsersSettings /></ProtectedRoute></PageWrapper>} />
-        <Route path="/feedback" element={<PageWrapper><ProtectedRoute><FeedbackPage /></ProtectedRoute></PageWrapper>} />
-        <Route path="/notifications" element={<PageWrapper><ProtectedRoute><Notifications /></ProtectedRoute></PageWrapper>} />
+        <Route path="/feedback" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><FeedbackPage /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/notifications" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Notifications /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
         <Route path="/notification-preferences" element={<PageWrapper><ProtectedRoute><NotificationPreferences /></ProtectedRoute></PageWrapper>} />
         <Route path="/legal" element={<PageWrapper><LegalPage /></PageWrapper>} />
         <Route path="/privacy" element={<PageWrapper><LegalPage /></PageWrapper>} />
@@ -132,11 +190,13 @@ const AnimatedRoutes = () => {
         <Route path="/settings/terms" element={<Navigate to="/legal#terms" replace />} />
         <Route path="/settings/faq" element={<PageWrapper><ProtectedRoute><FAQSupport /></ProtectedRoute></PageWrapper>} />
         <Route path="/settings/delete-account" element={<PageWrapper><ProtectedRoute><DeleteAccount /></ProtectedRoute></PageWrapper>} />
-        <Route path="/subscription" element={<PageWrapper><ProtectedRoute><Subscription /></ProtectedRoute></PageWrapper>} />
-        <Route path="/horoscope" element={<PageWrapper><ProtectedRoute><HoroscopeMatch /></ProtectedRoute></PageWrapper>} />
-        <Route path="/success-stories" element={<PageWrapper><ProtectedRoute><SuccessStories /></ProtectedRoute></PageWrapper>} />
-        <Route path="/about" element={<PageWrapper><ProtectedRoute><AboutUs /></ProtectedRoute></PageWrapper>} />
-        <Route path="/verify-profile" element={<PageWrapper><ProtectedRoute><VerifyProfile /></ProtectedRoute></PageWrapper>} />
+        <Route path="/subscription" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Subscription /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/horoscope" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><HoroscopeMatch /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/success-stories" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><SuccessStories /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/about" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><AboutUs /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/verify-profile" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><VerifyProfile /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        {/* Under development preview (accessible to anyone for testing) */}
+        <Route path="/under-development-preview" element={<PageWrapper><UnderDevelopment /></PageWrapper>} />
         {/* Admin dashboard — nested routes behind AdminRoute guard */}
         <Route path="/admin" element={<PageWrapper><AdminRoute><AdminLayout /></AdminRoute></PageWrapper>}>
           <Route index element={<AdminDashboard />} />
@@ -147,6 +207,7 @@ const AnimatedRoutes = () => {
           <Route path="analytics" element={<AdminRoute requiredRole="admin"><AdminAnalytics /></AdminRoute>} />
           <Route path="audit-log" element={<AdminRoute requiredRole="admin"><AdminAuditLog /></AdminRoute>} />
           <Route path="landing" element={<AdminRoute requiredRole="admin"><AdminLandingContent /></AdminRoute>} />
+          <Route path="under-development" element={<AdminRoute requiredRole="admin"><AdminUnderDevelopment /></AdminRoute>} />
         </Route>
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>

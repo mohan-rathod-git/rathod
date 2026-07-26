@@ -24,9 +24,12 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronLeft,
   LogOut,
   Shield,
   Layout,
+  Construction,
+  ArrowLeft,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, requiredRole: 'admin' },
   { label: 'Audit Log', path: '/admin/audit-log', icon: ScrollText, requiredRole: 'admin' },
   { label: 'Landing Hero', path: '/admin/landing', icon: Layout, requiredRole: 'admin' },
+  { label: 'Under Development', path: '/admin/under-development', icon: Construction, requiredRole: 'admin' },
 ];
 
 const AdminLayout = () => {

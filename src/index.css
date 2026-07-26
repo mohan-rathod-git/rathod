@@ -48,6 +48,31 @@
   }
 
   /*
+   * KEYBOARD SCROLL COMPENSATION
+   * Ensure focused inputs inside forms with sticky headers
+   * scroll into view correctly — not hidden behind the header.
+   *
+   * Sets global scroll-padding-top so browser-native anchor/focus
+   * scrolling also accounts for the sticky header height.
+   */
+  html {
+    scroll-padding-top: 90px;
+    /* Use interactive-widget=resizes-content to prevent iOS from
+       resizing the layout viewport when keyboard opens.
+       Without this, sticky headers jump on iOS 15+. */
+    overflow-x: hidden;
+  }
+
+  /*
+   * On iOS Safari specifically, prevent the page from scrolling
+   * in ways that fight with our keyboard scrollIntoView logic.
+   */
+  body.keyboard-open {
+    /* Don't prevent scrolling — we want to scroll to the input */
+    overscroll-behavior-y: contain;
+  }
+
+  /*
    * PREVENT iOS SAFARI AUTO-ZOOM on input focus.
    * font-size < 16px triggers zoom — force 16px minimum.
    * Note: Only on narrow screens. Desktop inputs are fine.

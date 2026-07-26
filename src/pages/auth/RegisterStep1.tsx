@@ -169,8 +169,8 @@ const RegisterStep1 = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div id="reg1-header" className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}>
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(isReturningUser ? "/" : "/login")} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground active:scale-95 transition-transform">
             <ArrowLeft className="h-4 w-4" />
@@ -188,7 +188,7 @@ const RegisterStep1 = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mx-auto max-w-md px-5 pt-6 pb-24 space-y-5">
+      <form onSubmit={handleSubmit} className="mx-auto max-w-md px-5 pt-6 pb-32 space-y-5" style={{ scrollPaddingTop: '90px' }}>
         <div className="animate-fade-up space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Full Name *</label>
           <div className="relative">

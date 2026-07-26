@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
  * - Only activates for TEXT inputs (not range sliders, checkboxes, etc.)
  * - Uses Visual Viewport API as primary signal (most reliable on mobile)
  * - Falls back to focusin/focusout events for browsers without Visual Viewport API
- * - Prevents scrollIntoView from fighting with AppShell overflow
+ * - Accounts for sticky headers via scroll-padding-top
+ * - Uses faster scroll timing for iOS responsiveness
  */
 
 // Input types that actually open the soft keyboard
@@ -40,6 +41,52 @@ function setKeyboardCSSVars(active: boolean, heightPx: number) {
   }
 }
 
+/**
+ * Scroll the focused input into view while accounting for any
+ * sticky headers (elements with position: sticky or fixed at the top).
+ */
+function scrollInputIntoView(target: HTMLElement | null) {
+  if (!target) return;
+
+  // Find the tallest sticky/fixed element at the top of the page
+  // (the sticky registration header is ~80px including pt-12)
+  const stickyEls = document.querySelectorAll<HTMLElement>(
+    "[class*='sticky'], [class*='fixed']"
+  );
+  let topOffset = 16; // base padding
+  stickyEls.forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    // Only count elements that are at the top of the viewport
+    if (rect.top <= 4 && rect.height > 0 && rect.height < 200) {
+      topOffset = Math.max(topOffset, rect.bottom + 12);
+    }
+  });
+
+  // Use scrollIntoView with a block:nearest first to prevent jarring jumps,
+  // then adjust if the header is covering it
+  requestAnimationFrame(() => {
+    const inputRect = target.getBoundingClientRect();
+
+    // Already fully visible above the keyboard? Don't scroll.
+    const vv = window.visualViewport;
+    const visibleBottom = vv ? vv.height : window.innerHeight;
+    const visibleTop = topOffset;
+
+    if (inputRect.top >= visibleTop && inputRect.bottom <= visibleBottom) {
+      return; // Already visible
+    }
+
+    // Scroll so the input center is in the middle of the visible area
+    const scrollTarget =
+      window.scrollY +
+      inputRect.top -
+      topOffset -
+      Math.max(0, (visibleBottom - inputRect.height) / 2 - topOffset);
+
+    window.scrollTo({ top: Math.max(0, scrollTarget), behavior: "smooth" });
+  });
+}
+
 export function useKeyboardViewport() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -49,18 +96,27 @@ export function useKeyboardViewport() {
 
     // ─── Visual Viewport API (primary — Chrome 61+, Safari 13+) ───
     const vv = window.visualViewport;
-    let lastWindowHeight = window.innerHeight;
+    const lastWindowHeight = window.innerHeight;
 
     const handleViewportResize = () => {
       if (!vv) return;
       const heightDiff = lastWindowHeight - vv.height;
-      // > 150px difference strongly indicates the keyboard is open
-      const active = heightDiff > 150;
+      // >120px difference strongly indicates the keyboard is open
+      const active = heightDiff > 120;
       const kbHeight = active ? Math.max(0, heightDiff) : 0;
 
       setIsKeyboardOpen(active);
       setKeyboardHeight(kbHeight);
       setKeyboardCSSVars(active, kbHeight);
+
+      // When keyboard opens via viewport resize, scroll active input into view
+      if (active) {
+        const focused = document.activeElement as HTMLElement | null;
+        if (isKeyboardInput(focused)) {
+          // Short delay to let the viewport settle
+          setTimeout(() => scrollInputIntoView(focused), 100);
+        }
+      }
     };
 
     // ─── Focus Events (fallback / supplement) ───
@@ -72,21 +128,10 @@ export function useKeyboardViewport() {
       document.body.classList.add("keyboard-open");
       document.body.style.setProperty("--is-keyboard-open", "1");
 
-      // Scroll focused input into view after keyboard animation settles
-      // Use a short delay and requestAnimationFrame to avoid layout thrash
-      setTimeout(() => {
-        requestAnimationFrame(() => {
-          try {
-            target?.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-              inline: "nearest",
-            });
-          } catch {
-            target?.scrollIntoView(false);
-          }
-        });
-      }, 350);
+      // Scroll focused input into view after keyboard animation settles.
+      // 200ms is enough for Android; iOS needs ~300ms but we start sooner
+      // and re-trigger after the viewport resize event fires.
+      setTimeout(() => scrollInputIntoView(target), 200);
     };
 
     const handleFocusOut = (e: FocusEvent) => {

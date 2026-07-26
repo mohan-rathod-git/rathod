@@ -106,8 +106,9 @@ const RegisterStep2 = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Sticky header - height ~80px including safe-area padding */}
+      <div id="reg2-header" className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 pb-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}>
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-foreground active:scale-95 transition-transform">
             <ArrowLeft className="h-4 w-4" />
@@ -123,7 +124,8 @@ const RegisterStep2 = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="mx-auto max-w-md px-5 pt-6 pb-24 space-y-5">
+      {/* scroll-padding-top ensures focused inputs aren't hidden under sticky header */}
+      <form onSubmit={handleSave} className="mx-auto max-w-md px-5 pt-6 pb-32 space-y-5" style={{ scrollPaddingTop: '90px' }}>
         <div className="animate-fade-up space-y-2">
           <label className="text-xs font-medium text-muted-foreground">Community *</label>
           <div className="flex flex-wrap gap-2">

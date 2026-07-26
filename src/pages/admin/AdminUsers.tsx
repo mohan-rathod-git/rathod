@@ -292,7 +292,7 @@ const AdminUsers = () => {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
                         <a
-                          href={`/profile/${u.id}`}
+                          href={`/profile/${u.user_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
