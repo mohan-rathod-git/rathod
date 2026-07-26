@@ -1,22 +1,19 @@
 /**
  * AuthCallback — Supabase OAuth & magic-link callback handler
  *
- * Supabase redirects here after:
- *  - Google OAuth sign-in
- *  - Email confirmation (signup)
- *  - Password reset link
- *
- * This page reads the hash/search params Supabase appends, lets the
- * client SDK exchange the code/token, then sends the user to the
- * correct destination.
+ * Handles ALL Supabase auth callback flows:
+ *  1. Google OAuth implicit flow: /#access_token=... (hash fragment)
+ *  2. Google OAuth PKCE flow:     /?code=...         (query param)
+ *  3. Email confirmation:         /?token_hash=...   (new format)
+ *  4. Password reset:             /?type=recovery    (query param)
+ *  5. Magic link:                 /#access_token=... (hash fragment)
+ *  6. Error:                      /?error=...        (query param)
  */
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ensureProfileRow } from "@/lib/profilePersistence";
-import { getPostAuthRoute } from "@/lib/profileUtils";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -25,13 +22,18 @@ const AuthCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Check URL params for error first
       const url = new URL(window.location.href);
-      const errorParam = url.searchParams.get("error");
-      const errorDesc = url.searchParams.get("error_description");
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const searchParams = url.searchParams;
 
+      // ─── 1. Error in query params ───
+      const errorParam = searchParams.get("error") || hashParams.get("error");
       if (errorParam) {
-        const friendlyMsg = errorDesc?.replace(/\+/g, " ") || errorParam;
+        const desc =
+          searchParams.get("error_description") ||
+          hashParams.get("error_description") ||
+          errorParam;
+        const friendlyMsg = decodeURIComponent(desc.replace(/\+/g, " "));
         setErrorMsg(friendlyMsg);
         setStatus("error");
         toast.error(`Authentication failed: ${friendlyMsg}`);
@@ -39,63 +41,121 @@ const AuthCallback = () => {
         return;
       }
 
-      // Let Supabase SDK process the URL and establish the session.
-      // getSession() automatically processes hash params (PKCE code / implicit token).
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error || !data.session) {
-        // The SDK may need to exchange a PKCE code — listen for the event
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            subscription.unsubscribe();
-
-            if (event === "PASSWORD_RECOVERY") {
-              // Redirect to the reset-password page
-              navigate("/reset-password", { replace: true });
-              return;
-            }
-
-            if (session?.user) {
-              await postLoginRedirect(session.user);
-            } else {
-              setErrorMsg("Authentication failed. Please try again.");
-              setStatus("error");
-              setTimeout(() => navigate("/login", { replace: true }), 3000);
-            }
-          }
-        );
-
-        // Trigger session check again to fire the event
-        await supabase.auth.getSession();
-        return;
-      }
-
-      // Check if this is a password recovery flow
-      if (data.session?.user?.email && url.searchParams.get("type") === "recovery") {
+      // ─── 2. Password recovery ───
+      const flowType = hashParams.get("type") || searchParams.get("type");
+      if (flowType === "recovery") {
+        // The SDK will have set the session from the hash; go to reset page
         navigate("/reset-password", { replace: true });
         return;
       }
 
+      // ─── 3. Hash-based implicit flow (/#access_token=...) ───
+      // This is what Supabase sends when the redirect URL is the app root.
+      // The SDK automatically reads the hash via detectSessionFromUrl,
+      // but we need to call getSession() AFTER a tick to let it process.
+      const hashAccessToken = hashParams.get("access_token");
+      if (hashAccessToken) {
+        // Give the Supabase SDK time to parse the hash and set localStorage
+        await new Promise((r) => setTimeout(r, 50));
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          // Manually set the session from the hash tokens
+          const { data: setData, error: setError } = await supabase.auth.setSession({
+            access_token: hashAccessToken,
+            refresh_token: hashParams.get("refresh_token") || "",
+          });
+
+          if (setError || !setData.session) {
+            setErrorMsg("Failed to establish session. Please try again.");
+            setStatus("error");
+            setTimeout(() => navigate("/login", { replace: true }), 3000);
+            return;
+          }
+
+          await postLoginRedirect(setData.session.user);
+          return;
+        }
+
+        await postLoginRedirect(data.session.user);
+        return;
+      }
+
+      // ─── 4. PKCE flow (/?code=...) ───
+      const code = searchParams.get("code");
+      if (code) {
+        // The SDK exchanges the code automatically on getSession()
+        await new Promise((r) => setTimeout(r, 100));
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
+          // Listen for the auth state change
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+              subscription.unsubscribe();
+              if (event === "SIGNED_IN" && session?.user) {
+                await postLoginRedirect(session.user);
+              } else if (event === "PASSWORD_RECOVERY") {
+                navigate("/reset-password", { replace: true });
+              } else {
+                setErrorMsg("Authentication failed. Please try again.");
+                setStatus("error");
+                setTimeout(() => navigate("/login", { replace: true }), 3000);
+              }
+            }
+          );
+          return;
+        }
+        await postLoginRedirect(data.session.user);
+        return;
+      }
+
+      // ─── 5. Already have a session (e.g., navigated here directly) ───
+      const { data, error } = await supabase.auth.getSession();
       if (data.session?.user) {
         await postLoginRedirect(data.session.user);
+        return;
       }
+
+      // ─── 6. No token found — listen for auth state change ───
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          subscription.unsubscribe();
+          if (event === "SIGNED_IN" && session?.user) {
+            await postLoginRedirect(session.user);
+          } else if (event === "PASSWORD_RECOVERY") {
+            navigate("/reset-password", { replace: true });
+          } else {
+            setErrorMsg("No authentication token found. Please try again.");
+            setStatus("error");
+            setTimeout(() => navigate("/login", { replace: true }), 3000);
+          }
+        }
+      );
     };
 
     const postLoginRedirect = async (user: any) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("registration_step, profile_completion")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (!profile) {
-        await ensureProfileRow(user);
+        toast.success("Welcome! You're signed in.");
+
+        // Route based on profile completion
+        if (!profile || !profile.registration_step || profile.registration_step <= 1) {
+          navigate("/register", { replace: true });
+        } else if (profile.registration_step === 2) {
+          navigate("/register/step2", { replace: true });
+        } else if (profile.registration_step === 3) {
+          navigate("/register/step3", { replace: true });
+        } else {
+          navigate("/", { replace: true });
+        }
+      } catch {
+        navigate("/", { replace: true });
       }
-
-      toast.success("Welcome!");
-      navigate(getPostAuthRoute(profile ?? ({ registration_step: 1 } as any)), {
-        replace: true,
-      });
     };
 
     handleCallback();
@@ -105,7 +165,7 @@ const AuthCallback = () => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 px-4">
       {status === "loading" ? (
         <>
-          {/* Branded loading spinner */}
+          {/* Branded loading */}
           <div className="relative">
             <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-glow-primary">
               <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
@@ -134,7 +194,8 @@ const AuthCallback = () => {
         <>
           <div className="h-16 w-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
             <svg className="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
             </svg>
           </div>
           <div className="text-center space-y-1.5">
@@ -145,6 +206,12 @@ const AuthCallback = () => {
               {errorMsg || "Something went wrong. Redirecting to login…"}
             </p>
           </div>
+          <a
+            href="/login"
+            className="px-6 py-3 rounded-2xl gradient-saffron text-white text-sm font-bold shadow-glow-primary"
+          >
+            Back to Login
+          </a>
         </>
       )}
     </div>

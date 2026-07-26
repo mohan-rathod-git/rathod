@@ -146,9 +146,34 @@ const AnimatedRoutes = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+
+    // ─── OAuth / Email-link callback detection ───
+    // Supabase sends tokens as either:
+    //   • Hash fragment: /#access_token=... (implicit flow)
+    //   • Query param:   /?code=...          (PKCE flow)
+    //   • Error:         /?error=...         (failed OAuth)
+    const isOAuthHash = hash.includes('access_token') || hash.includes('refresh_token');
+    const isOAuthCode = search.includes('code=');
+    const isOAuthError = search.includes('error=');
+    const isPasswordRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+
+    if (isOAuthHash || isOAuthCode || isOAuthError || isPasswordRecovery) {
+      // Forward to AuthCallback, preserving both hash and search params
+      // so the SDK can exchange the token correctly
+      navigate('/auth/callback' + search + hash, { replace: true });
+      return;
+    }
+
     const splashShown = sessionStorage.getItem("splashShown");
-    // Skip splash for admin routes
-    if (!splashShown && location.pathname !== "/splash" && !location.pathname.startsWith("/admin")) {
+    // Skip splash for admin routes, auth routes, and callback routes
+    if (
+      !splashShown &&
+      location.pathname !== "/splash" &&
+      location.pathname !== "/auth/callback" &&
+      !location.pathname.startsWith("/admin")
+    ) {
       sessionStorage.setItem("splashShown", "true");
       navigate("/splash", { replace: true });
     }

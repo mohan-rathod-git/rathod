@@ -253,11 +253,10 @@ const Login = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
+        // Redirect to root — AnimatedRoutes intercepts the hash and
+        // forwards to /auth/callback automatically. This works whether
+        // the Supabase dashboard has "/" or "/auth/callback" whitelisted.
+        redirectTo: `${window.location.origin}/`,
       },
     });
     if (error) {

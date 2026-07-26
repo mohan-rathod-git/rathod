@@ -15,5 +15,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionFromUrl: true, // Reads #access_token=... hash (Google OAuth implicit flow)
+    flowType: 'implicit',       // Use implicit flow to match what Supabase dashboard sends
   }
 });
