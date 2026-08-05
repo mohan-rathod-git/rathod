@@ -18,7 +18,6 @@ import {
 import { useNotifications, NotificationCategory, NotificationItem } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
 
 const CATEGORIES: { key: NotificationCategory; label: string }[] = [
   { key: "all", label: "All" },
