@@ -1,8 +1,7 @@
-import { useState, useCallback } from "react";
+﻿import { useState, useCallback } from "react";
 import SearchBar from "@/components/SearchBar";
 import FilterModal from "@/components/FilterModal";
 import type { FilterState } from "@/components/FilterModal";
-import BottomNav from "@/components/BottomNav";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import { ArrowLeft, LayoutGrid, List } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +14,7 @@ import { ExplorePageSkeleton } from "@/components/SkeletonLoaders";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 import SEO from "@/components/SEO";
+import BottomNav from "@/components/BottomNav";
 
 const Explore = () => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -171,8 +171,8 @@ const Explore = () => {
         )}
       </div>
 
-      <BottomNav />
       <FilterModal isOpen={filterOpen} onClose={() => setFilterOpen(false)} onApply={setAdvancedFilters} />
+      <BottomNav />
     </div>
   );
 };

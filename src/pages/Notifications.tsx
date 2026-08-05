@@ -1,6 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+import BottomNav from "@/components/BottomNav";
   Bell,
   ArrowLeft,
   CheckCheck,
@@ -15,9 +16,9 @@ import {
   Filter,
 } from "lucide-react";
 import { useNotifications, NotificationCategory, NotificationItem } from "@/hooks/useNotifications";
-import BottomNav from "@/components/BottomNav";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import BottomNav from "@/components/BottomNav";
 
 const CATEGORIES: { key: NotificationCategory; label: string }[] = [
   { key: "all", label: "All" },
@@ -266,8 +267,8 @@ const Notifications = () => {
           </div>
         )}
       </main>
-
       <BottomNav />
+
     </div>
   );
 };

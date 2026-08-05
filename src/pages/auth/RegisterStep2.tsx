@@ -35,9 +35,11 @@ const RegisterStep2 = () => {
       return;
     }
 
-    const { profile } = user;
-    if (profile && (profile.registration_step >= 4 || profile.profile_completion > 80)) {
+    // Hard guard: once profile is ≥80% complete or registration finished, never return here
+    const { profile } = user as any;
+    if (profile && (profile.profile_completion >= 80 || profile.registration_step >= 4)) {
       navigate("/", { replace: true });
+      return;
     }
   }, [authLoading, user, navigate]);
 

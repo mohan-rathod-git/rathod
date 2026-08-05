@@ -1,7 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BottomNav from "@/components/BottomNav";
 import { ArrowLeft, Check, Crown, Star, Zap, X } from "lucide-react";
+import BottomNav from "@/components/BottomNav";
 
 const plans = [
   {
@@ -101,8 +101,8 @@ const Subscription = () => {
         </button>
         <p className="text-center text-[10px] text-muted-foreground">Payment coming soon</p>
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

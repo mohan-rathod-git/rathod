@@ -195,11 +195,6 @@ const Login = () => {
       return;
     }
 
-    if (cleanPhone !== "8088291011") {
-      toast.error("Mobile OTP login is currently restricted to administrators only.");
-      return;
-    }
-
     // Format phone with +91 country code
     const fullPhone = cleanPhone.startsWith("+") ? cleanPhone : `+91${cleanPhone.replace(/^0+/, "")}`;
 
@@ -253,10 +248,12 @@ const Login = () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // Redirect to root — AnimatedRoutes intercepts the hash and
-        // forwards to /auth/callback automatically. This works whether
-        // the Supabase dashboard has "/" or "/auth/callback" whitelisted.
-        redirectTo: `${window.location.origin}/`,
+        // Redirect directly to /auth/callback — this is the dedicated handler.
+        // Pointing to "/" required a secondary detect-and-forward step in
+        // AnimatedRoutes that could race and show a localhost "not reached" error
+        // on production builds. This URL must also be whitelisted in the
+        // Supabase dashboard → Authentication → URL Configuration → Redirect URLs.
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (error) {

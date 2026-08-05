@@ -4,12 +4,12 @@ import { ArrowLeft, Save, Loader2, Camera, User, Sparkles, CheckCircle2 } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import BottomNav from "@/components/BottomNav";
 import CropModal from "@/components/CropModal";
 import { COMMUNITIES, GOTRAS, STATES } from "@/types";
 import { calculateProfileCompletion } from "@/lib/profileUtils";
 import { uploadWithQuotaCheck } from "@/lib/storageQuota";
 import { motion } from "framer-motion";
+import BottomNav from "@/components/BottomNav";
 
 const EDUCATIONS = ["10th Pass", "12th Pass", "Diploma", "Graduate", "Post Graduate", "Doctorate", "Other"];
 const HEIGHTS = Array.from({ length: 37 }, (_, i) => {
@@ -18,6 +18,23 @@ const HEIGHTS = Array.from({ length: 37 }, (_, i) => {
 });
 const INCOMES = ["Below 2 Lakh", "2-5 Lakh", "5-10 Lakh", "10-15 Lakh", "15-25 Lakh", "25-50 Lakh", "50 Lakh+"];
 const MARITAL = ["Never Married", "Divorced", "Widowed", "Awaiting Divorce"];
+
+// ─── Stable helper components (MUST be outside EditProfile to avoid remount on every keystroke) ───
+
+const inputCls =
+  "w-full h-11 sm:h-12 rounded-xl border border-border/60 bg-card px-3.5 py-2.5 text-base sm:text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all";
+const selectCls = inputCls;
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="space-y-1.5">
+    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+      {label}
+    </label>
+    {children}
+  </div>
+);
+
+// ────────────────────────────────────────────────────────────────────────────
 
 const EditProfile = () => {
   const navigate = useNavigate();
@@ -142,30 +159,17 @@ const EditProfile = () => {
     setUploadingPhoto(true);
     try {
       const file = new File([croppedBlob], `avatar-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const filePath = `${user.id}/${Date.now()}.jpg`;
 
-      const quotaCheck = await uploadWithQuotaCheck(user.id, file);
+      // FIXED: correct arg order is (file, userId, storagePath, bucket, options)
+      const quotaCheck = await uploadWithQuotaCheck(file, user.id, filePath, "avatars", { upsert: true });
       if (!quotaCheck.success) {
         toast.error(quotaCheck.error || "Storage quota exceeded");
         setUploadingPhoto(false);
         return;
       }
 
-      const fileExt = "jpg";
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        toast.error("Photo upload failed: " + uploadError.message);
-        setUploadingPhoto(false);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-      const photoUrl = publicUrlData.publicUrl;
+      const photoUrl = quotaCheck.publicUrl!;
 
       await supabase
         .from("profiles")
@@ -182,19 +186,6 @@ const EditProfile = () => {
   };
 
   const currentCompletion = calculateProfileCompletion({ ...profile, ...form });
-
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-
-  const inputCls =
-    "w-full h-11 sm:h-12 rounded-xl border border-border/60 bg-card px-3.5 py-2.5 text-base sm:text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all";
-  const selectCls = inputCls;
 
   return (
     <div className="flex flex-col min-h-dvh bg-background">
@@ -239,8 +230,8 @@ const EditProfile = () => {
         </div>
       </header>
 
-      {/* Main Content Form */}
-      <main className="mx-auto max-w-lg px-4 pt-6 space-y-6">
+      {/* Main Content Form — pb-28 clears the fixed BottomNav */}
+      <main className="mx-auto max-w-lg w-full px-4 pt-6 pb-28 space-y-6">
         {/* Photo Upload Section */}
         <section className="bg-card rounded-2xl p-5 border border-border/50 shadow-soft flex flex-col items-center text-center animate-fade-up">
           <div className="relative group">
@@ -623,8 +614,8 @@ const EditProfile = () => {
           onCancel={() => setCropImageSrc(null)}
         />
       )}
-
       <BottomNav />
+
     </div>
   );
 };

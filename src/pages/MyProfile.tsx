@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import BottomNav from "@/components/BottomNav";
+﻿import { useState, useRef } from "react";
 import { Camera, ChevronRight, Crown, Eye, Heart, LogOut, Settings, Users, Star, BookOpen, Loader2, Pencil, Share2, ShieldCheck, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +7,7 @@ import { toast } from "sonner";
 import { calculateProfileCompletion } from "@/lib/profileUtils";
 import CropModal from "@/components/CropModal";
 import { uploadWithQuotaCheck, decrementStorageQuota } from "@/lib/storageQuota";
+import BottomNav from "@/components/BottomNav";
 
 const MyProfile = () => {
   const navigate = useNavigate();
@@ -292,8 +292,8 @@ const MyProfile = () => {
           <span className="text-sm font-semibold">Logout</span>
         </button>
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

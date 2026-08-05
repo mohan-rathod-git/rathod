@@ -12,6 +12,7 @@ import { logAdminAction } from '@/lib/adminAudit';
 import { toast } from 'sonner';
 import {
   Search, ChevronLeft, ChevronRight, ShieldCheck, Ban, Eye, Loader2, Filter, X,
+  PauseCircle, PlayCircle, Star, StarOff,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -34,6 +35,10 @@ const AdminUsers = () => {
   // Ban modal state
   const [banModal, setBanModal] = useState<{ userId: string; name: string } | null>(null);
   const [banReason, setBanReason] = useState('');
+
+  // Suspend modal state
+  const [suspendModal, setSuspendModal] = useState<{ userId: string; name: string } | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -145,6 +150,72 @@ const AdminUsers = () => {
       toast.success(`${name} verified`);
       fetchUsers();
     }
+    setActionLoading(null);
+  };
+
+  const handleSuspend = async () => {
+    if (!suspendModal || !suspendReason.trim() || !adminUser) return;
+    setActionLoading(suspendModal.userId);
+
+    await logAdminAction(adminUser.id, {
+      action: 'suspend_user',
+      targetType: 'user',
+      targetId: suspendModal.userId,
+      details: { reason: suspendReason, user_name: suspendModal.name },
+    });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ registration_step: -1 } as any)
+      .eq('user_id', suspendModal.userId);
+
+    if (error) { toast.error('Failed to suspend user'); }
+    else { toast.success(`${suspendModal.name} suspended`); fetchUsers(); }
+
+    setActionLoading(null);
+    setSuspendModal(null);
+    setSuspendReason('');
+  };
+
+  const handleUnsuspend = async (userId: string, name: string) => {
+    if (!adminUser) return;
+    setActionLoading(userId);
+
+    await logAdminAction(adminUser.id, {
+      action: 'unsuspend_user',
+      targetType: 'user',
+      targetId: userId,
+      details: { user_name: name },
+    });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ registration_step: 5 } as any)
+      .eq('user_id', userId);
+
+    if (error) { toast.error('Failed to unsuspend user'); }
+    else { toast.success(`${name} unsuspended`); fetchUsers(); }
+    setActionLoading(null);
+  };
+
+  const handleTogglePremium = async (userId: string, name: string, isPremium: boolean) => {
+    if (!adminUser) return;
+    setActionLoading(userId);
+
+    await logAdminAction(adminUser.id, {
+      action: 'verify_user',
+      targetType: 'user',
+      targetId: userId,
+      details: { op: isPremium ? 'revoke_premium' : 'grant_premium', user_name: name },
+    });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_premium: !isPremium })
+      .eq('user_id', userId);
+
+    if (error) { toast.error('Failed to update premium status'); }
+    else { toast.success(isPremium ? `${name} downgraded` : `${name} upgraded to Premium`); fetchUsers(); }
     setActionLoading(null);
   };
 
@@ -290,7 +361,7 @@ const AdminUsers = () => {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1">
                         <a
                           href={`/profile/${u.user_id}`}
                           target="_blank"
@@ -300,7 +371,7 @@ const AdminUsers = () => {
                         >
                           <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                         </a>
-                        {!u.is_verified && (
+                        {!u.is_verified && u.registration_step !== -2 && (
                           <button
                             onClick={() => handleVerify(u.user_id, u.full_name)}
                             disabled={actionLoading === u.user_id}
@@ -314,6 +385,37 @@ const AdminUsers = () => {
                             )}
                           </button>
                         )}
+                        {/* Premium toggle */}
+                        <button
+                          onClick={() => handleTogglePremium(u.user_id, u.full_name || 'User', u.is_premium)}
+                          disabled={actionLoading === u.user_id}
+                          className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-amber-500/10 transition-colors"
+                          title={u.is_premium ? 'Revoke Premium' : 'Grant Premium'}
+                        >
+                          {u.is_premium
+                            ? <StarOff className="h-3.5 w-3.5 text-amber-600" />
+                            : <Star className="h-3.5 w-3.5 text-amber-400" />}
+                        </button>
+                        {/* Suspend / Unsuspend */}
+                        {u.registration_step === -1 ? (
+                          <button
+                            onClick={() => handleUnsuspend(u.user_id, u.full_name || 'User')}
+                            disabled={actionLoading === u.user_id}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-emerald-500/10 transition-colors"
+                            title="Unsuspend user"
+                          >
+                            <PlayCircle className="h-3.5 w-3.5 text-emerald-600" />
+                          </button>
+                        ) : u.registration_step !== -2 ? (
+                          <button
+                            onClick={() => setSuspendModal({ userId: u.user_id, name: u.full_name || 'User' })}
+                            disabled={actionLoading === u.user_id}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-amber-500/10 transition-colors"
+                            title="Suspend user"
+                          >
+                            <PauseCircle className="h-3.5 w-3.5 text-amber-600" />
+                          </button>
+                        ) : null}
                         {u.registration_step !== -2 && (
                           <button
                             onClick={() => setBanModal({ userId: u.user_id, name: u.full_name || 'User' })}
@@ -406,6 +508,60 @@ const AdminUsers = () => {
                   className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                 >
                   {actionLoading === banModal.userId ? 'Banning...' : 'Confirm Ban'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Suspend confirmation modal */}
+      {suspendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSuspendModal(null)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative bg-card rounded-2xl shadow-elevated border border-border/30 p-6 max-w-md w-full"
+          >
+            <button onClick={() => setSuspendModal(null)} className="absolute top-4 right-4">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <PauseCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-foreground">Suspend User</h3>
+                <p className="text-xs text-muted-foreground">Suspending <strong>{suspendModal.name}</strong></p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                  Reason (required, logged to audit trail)
+                </label>
+                <textarea
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="Describe why this account is being suspended..."
+                  rows={3}
+                  className="w-full rounded-xl bg-muted px-4 py-3 text-sm border-0 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setSuspendModal(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSuspend}
+                  disabled={!suspendReason.trim() || actionLoading === suspendModal.userId}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading === suspendModal.userId ? 'Suspending...' : 'Confirm Suspend'}
                 </button>
               </div>
             </div>

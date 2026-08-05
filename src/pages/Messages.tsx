@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import BottomNav from "@/components/BottomNav";
+﻿import { useEffect, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { useRealtimeMessages } from "@/hooks/useRealtime";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
+import BottomNav from "@/components/BottomNav";
 
 const Messages = () => {
   const { conversations, loading } = useRealtimeMessages();
@@ -127,8 +127,8 @@ const Messages = () => {
           />
         )}
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

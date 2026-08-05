@@ -28,6 +28,17 @@ const RegisterStep1 = () => {
   const isReturningUser = !!user;
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) return; // Not logged in — allow viewing the signup form
+
+    // ── Hard guard: never let a completed user see register pages again ──
+    // If profile is ≥80% done OR registration step is 4+, go home.
+    const p = (user as any)?.profile;
+    if (p && (p.profile_completion >= 80 || p.registration_step >= 4)) {
+      navigate("/", { replace: true });
+      return;
+    }
+
     if (isReturningUser && profile) {
       setForm((prev) => ({
         ...prev,
@@ -39,7 +50,7 @@ const RegisterStep1 = () => {
         cityVillage: profile.city_village || prev.cityVillage,
       }));
     }
-  }, [isReturningUser, profile, user]);
+  }, [authLoading, user, profile, isReturningUser, navigate]);
 
   const set = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
 

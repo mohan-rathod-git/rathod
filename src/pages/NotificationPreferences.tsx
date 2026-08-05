@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BottomNav from "@/components/BottomNav";
 import { ArrowLeft, Bell, MessageCircle, Heart, Sparkles, Phone, Volume2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import BottomNav from "@/components/BottomNav";
 
 type PreferencesState = {
   push_notifications: boolean;
@@ -166,8 +166,8 @@ const NotificationPreferences = () => {
           </div>
         )}
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

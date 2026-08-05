@@ -1,8 +1,8 @@
-import { useNavigate } from "react-router-dom";
-import BottomNav from "@/components/BottomNav";
+﻿import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Heart, PenLine, Quote, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
+import BottomNav from "@/components/BottomNav";
 
 const stories = [
   { id: 1, names: "Rahul & Meena Rathod", location: "Pune, Maharashtra", date: "March 2025", quote: "We found each other through Banjara Bandhan and it was truly destiny. Our families connected instantly because of shared values." },
@@ -112,8 +112,8 @@ const SuccessStories = () => {
           Share Your Story
         </motion.button>
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

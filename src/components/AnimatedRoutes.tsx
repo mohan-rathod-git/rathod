@@ -40,6 +40,7 @@ const VerifyProfile = React.lazy(() => import("@/pages/VerifyProfile"));
 const AdminVerification = React.lazy(() => import("@/pages/admin/AdminVerification"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 const UnderDevelopment = React.lazy(() => import("@/pages/UnderDevelopment"));
+const SetupProfile = React.lazy(() => import("@/pages/SetupProfile"));
 
 // Admin pages — lazy loaded, behind AdminRoute guard
 const AdminLayout = React.lazy(() => import("@/pages/admin/AdminLayout"));
@@ -51,6 +52,9 @@ const AdminAnalytics = React.lazy(() => import("@/pages/admin/AdminAnalytics"));
 const AdminAuditLog = React.lazy(() => import("@/pages/admin/AdminAuditLog"));
 const AdminLandingContent = React.lazy(() => import("@/pages/admin/AdminLandingContent"));
 const AdminUnderDevelopment = React.lazy(() => import("@/pages/admin/AdminUnderDevelopment"));
+const AdminFeedback = React.lazy(() => import("@/pages/admin/AdminFeedback"));
+const AdminSuccessStories = React.lazy(() => import("@/pages/admin/AdminSuccessStories"));
+const AdminRoles = React.lazy(() => import("@/pages/admin/AdminRoles"));
 
 
 const pageVariants = {
@@ -127,8 +131,19 @@ const UnderDevelopmentGuard = ({ children }: { children: React.ReactNode }) => {
     checkRoute();
   }, [location.pathname, isModerator]);
 
-  // Still checking — render nothing briefly (avoids flash)
-  if (isUnderDev === null) return null;
+  // Still checking — show branded spinner so there's no blank/white flash
+  if (isUnderDev === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="relative">
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-glow-primary animate-pulse">
+            <img src="/logo.jpg" alt="Loading" className="w-full h-full object-cover" />
+          </div>
+          <div className="absolute -inset-1 rounded-2xl border-2 border-primary/20 animate-ping opacity-30" />
+        </div>
+      </div>
+    );
+  }
 
   if (isUnderDev) {
     return (
@@ -193,6 +208,7 @@ const AnimatedRoutes = () => {
         <Route path="/register/step3" element={<PageWrapper><ProtectedRoute><RegisterStep3 /></ProtectedRoute></PageWrapper>} />
         <Route path="/" element={<PageWrapper><ProtectedRoute><Index /></ProtectedRoute></PageWrapper>} />
         <Route path="/explore" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Explore /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
+        <Route path="/setup-profile" element={<PageWrapper><ProtectedRoute><SetupProfile /></ProtectedRoute></PageWrapper>} />
         <Route path="/profile/:id" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><ProfileDetail /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
         <Route path="/matches" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Matches /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
         <Route path="/messages" element={<PageWrapper><ProtectedRoute><UnderDevelopmentGuard><Messages /></UnderDevelopmentGuard></ProtectedRoute></PageWrapper>} />
@@ -233,7 +249,11 @@ const AnimatedRoutes = () => {
           <Route path="audit-log" element={<AdminRoute requiredRole="admin"><AdminAuditLog /></AdminRoute>} />
           <Route path="landing" element={<AdminRoute requiredRole="admin"><AdminLandingContent /></AdminRoute>} />
           <Route path="under-development" element={<AdminRoute requiredRole="admin"><AdminUnderDevelopment /></AdminRoute>} />
+          <Route path="feedback" element={<AdminFeedback />} />
+          <Route path="success-stories" element={<AdminRoute requiredRole="admin"><AdminSuccessStories /></AdminRoute>} />
+          <Route path="roles" element={<AdminRoute requiredRole="super_admin"><AdminRoles /></AdminRoute>} />
         </Route>
+
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>

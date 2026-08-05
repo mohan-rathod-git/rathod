@@ -1,5 +1,4 @@
-import { useState, useCallback } from "react";
-import BottomNav from "@/components/BottomNav";
+﻿import { useState, useCallback } from "react";
 import { Heart, Check, X, Loader2, MessageCircle, UserPlus, Send } from "lucide-react";
 import { useRealtimeInterests } from "@/hooks/useRealtime";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { motion, AnimatePresence } from "framer-motion";
 import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
+import BottomNav from "@/components/BottomNav";
 
 const tabs = [
   { key: "Received", icon: Heart, label: "Received" },
@@ -218,8 +218,8 @@ const Matches = () => {
           </AnimatePresence>
         )}
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

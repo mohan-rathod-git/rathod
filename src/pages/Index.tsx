@@ -1,11 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+﻿import { useState, useCallback, useEffect } from "react";
 import HomeHeader from "@/components/HomeHeader";
 import SearchBar from "@/components/SearchBar";
 import SectionDivider from "@/components/SectionDivider";
 import SuccessStoryBanner from "@/components/SuccessStoryBanner";
 import FilterModal from "@/components/FilterModal";
 import type { FilterState } from "@/components/FilterModal";
-import BottomNav from "@/components/BottomNav";
 import PremiumProfileCard from "@/components/PremiumProfileCard";
 import { ChevronRight, Sparkles, Heart, TrendingUp, Users, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +18,7 @@ import EmptyStateGraphic from "@/components/graphics/EmptyStateGraphic";
 import { supabase } from "@/integrations/supabase/client";
 import SEO from "@/components/SEO";
 import { getRecommendedProfiles } from "@/lib/recommendationEngine";
+import BottomNav from "@/components/BottomNav";
 
 const Index = () => {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -229,8 +229,8 @@ const Index = () => {
         </div>
       )}
 
-      <BottomNav />
       <FilterModal isOpen={filterOpen} onClose={() => setFilterOpen(false)} onApply={setFilters} />
+      <BottomNav />
     </div>
   );
 };

@@ -1,7 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import BottomNav from "@/components/BottomNav";
 import { ArrowLeft, Sparkles } from "lucide-react";
+import BottomNav from "@/components/BottomNav";
 
 const rashis = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 
@@ -110,8 +110,8 @@ const HoroscopeMatch = () => {
           </div>
         )}
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

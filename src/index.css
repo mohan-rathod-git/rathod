@@ -25,7 +25,8 @@
     /* Touch optimizations */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
-    overscroll-behavior-y: none;
+    /* Allow natural momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
     min-height: 100dvh;
     /* Keyboard CSS variables — set by useKeyboardViewport hook */
     --is-keyboard-open: 0;
@@ -57,10 +58,10 @@
    */
   html {
     scroll-padding-top: 90px;
-    /* Use interactive-widget=resizes-content to prevent iOS from
-       resizing the layout viewport when keyboard opens.
-       Without this, sticky headers jump on iOS 15+. */
+    /* Prevent horizontal overflow across the whole app */
     overflow-x: hidden;
+    /* CRITICAL: html must be the scroll root — allow vertical scroll */
+    overflow-y: auto;
   }
 
   /*
@@ -123,7 +124,9 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    /* No overflow set here — html handles overflow-x clipping.
+       Setting overflow on this element creates a stacking context
+       that traps position:fixed children (like BottomNav). */
   }
 
   /*
@@ -167,9 +170,9 @@
       width: 100%;
       box-shadow: none;
     }
-    /* Hide mobile bottom nav on desktop */
+    /* Allow bottom nav on desktop since there's no sidebar yet */
     .bottom-nav-root {
-      display: none !important;
+      /* display: none !important; */
     }
   }
 

@@ -1,10 +1,10 @@
-import React from "react";
+﻿import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Shield, Heart, Sparkles, Target, Star } from "lucide-react";
 import { motion } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
 import SEO from "@/components/SEO";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
+import BottomNav from "@/components/BottomNav";
 
 const AboutUs = () => {
   const navigate = useNavigate();
@@ -138,8 +138,8 @@ const AboutUs = () => {
           </div>
         </motion.div>
       </div>
-
       <BottomNav />
+
     </div>
   );
 };

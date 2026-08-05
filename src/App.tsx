@@ -28,12 +28,12 @@ const queryClient = new QueryClient({
  * - Desktop (≥1024px): Full-width, no phone frame — proper desktop layout
  * - Admin routes: Always full-width (AdminLayout uses position:fixed)
  */
+
 const AppShell = ({ children }: { children: React.ReactNode }) => {
   useKeyboardViewport();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  // Admin and desktop-full-width routes: transparent full-width pass-through
   if (isAdminRoute) {
     return (
       <div style={{ width: "100%", minHeight: "100dvh", position: "relative" }}>

@@ -30,6 +30,9 @@ import {
   Layout,
   Construction,
   ArrowLeft,
+  MessageSquare,
+  Heart,
+  UserCog,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -46,11 +49,14 @@ const navItems: NavItem[] = [
   { label: 'Users', path: '/admin/users', icon: Users, requiredRole: 'moderator' },
   { label: 'Verification', path: '/admin/verification', icon: ShieldCheck, requiredRole: 'moderator' },
   { label: 'Reports', path: '/admin/reports', icon: Flag, requiredRole: 'moderator' },
+  { label: 'Feedback', path: '/admin/feedback', icon: MessageSquare, requiredRole: 'moderator' },
   { label: 'Broadcasts', path: '/admin/broadcasts', icon: Megaphone, requiredRole: 'admin' },
   { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, requiredRole: 'admin' },
   { label: 'Audit Log', path: '/admin/audit-log', icon: ScrollText, requiredRole: 'admin' },
+  { label: 'Success Stories', path: '/admin/success-stories', icon: Heart, requiredRole: 'admin' },
   { label: 'Landing Hero', path: '/admin/landing', icon: Layout, requiredRole: 'admin' },
   { label: 'Under Development', path: '/admin/under-development', icon: Construction, requiredRole: 'admin' },
+  { label: 'Role Management', path: '/admin/roles', icon: UserCog, requiredRole: 'super_admin' },
 ];
 
 const AdminLayout = () => {
