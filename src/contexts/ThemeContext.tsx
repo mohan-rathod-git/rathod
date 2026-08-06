@@ -1,9 +1,9 @@
 /**
- * ThemeContext — Global real-time theme provider
+ * ThemeContext — Global real-time theme + hero banner provider
  *
- * Fetches the active theme from `global_settings` table on mount,
- * subscribes to Supabase real-time changes, and injects CSS variables
- * dynamically into the document root.
+ * Fetches the active theme and hero banner settings from `global_settings`
+ * table on mount, subscribes to Supabase real-time changes, and injects
+ * CSS variables dynamically into the document root.
  *
  * When the super admin changes the live theme, ALL users see the
  * update instantly without a page reload.
@@ -13,11 +13,17 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { THEMES, DEFAULT_THEME_ID, type AppTheme } from '@/lib/themes';
 
+export type HeroType = 'gradient' | 'image' | 'video';
+
 interface ThemeContextValue {
   /** Currently active theme object */
   activeTheme: AppTheme;
   /** Active theme ID string */
   activeThemeId: string;
+  /** Hero banner type */
+  heroType: HeroType;
+  /** Hero banner URL (image or video) — null means use gradient */
+  heroUrl: string | null;
   /** Whether the theme is still loading from DB */
   loading: boolean;
 }
@@ -25,6 +31,8 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue>({
   activeTheme: THEMES[DEFAULT_THEME_ID],
   activeThemeId: DEFAULT_THEME_ID,
+  heroType: 'gradient',
+  heroUrl: null,
   loading: true,
 });
 
@@ -72,6 +80,8 @@ function applyTheme(theme: AppTheme) {
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID);
+  const [heroType, setHeroType] = useState<HeroType>('gradient');
+  const [heroUrl, setHeroUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const appliedRef = useRef(false);
 
@@ -84,23 +94,25 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     appliedRef.current = true;
   }, [activeTheme]);
 
-  // Fetch initial theme from global_settings
-  const fetchTheme = useCallback(async () => {
+  // Fetch initial theme and hero settings from global_settings
+  const fetchSettings = useCallback(async () => {
     try {
       const { data, error } = await (supabase as any)
         .from('global_settings')
-        .select('theme_id')
+        .select('theme_id, hero_type, hero_url')
         .eq('id', 'main')
         .maybeSingle();
 
-      if (!error && data?.theme_id && THEMES[data.theme_id]) {
-        setActiveThemeId(data.theme_id);
+      if (!error && data) {
+        if (data.theme_id && THEMES[data.theme_id]) {
+          setActiveThemeId(data.theme_id);
+        }
+        if (data.hero_type) setHeroType(data.hero_type as HeroType);
+        if (data.hero_url !== undefined) setHeroUrl(data.hero_url || null);
       } else {
-        // Table might not exist yet — use default
         setActiveThemeId(DEFAULT_THEME_ID);
       }
     } catch {
-      // Silently fall back to default
       setActiveThemeId(DEFAULT_THEME_ID);
     } finally {
       setLoading(false);
@@ -108,8 +120,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   useEffect(() => {
-    fetchTheme();
-  }, [fetchTheme]);
+    fetchSettings();
+  }, [fetchSettings]);
 
   // Subscribe to real-time changes on global_settings
   useEffect(() => {
@@ -124,10 +136,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           filter: 'id=eq.main',
         },
         (payload: any) => {
-          const newThemeId = payload?.new?.theme_id;
-          if (newThemeId && THEMES[newThemeId]) {
-            setActiveThemeId(newThemeId);
+          const newData = payload?.new;
+          if (!newData) return;
+          if (newData.theme_id && THEMES[newData.theme_id]) {
+            setActiveThemeId(newData.theme_id);
           }
+          if (newData.hero_type) setHeroType(newData.hero_type as HeroType);
+          setHeroUrl(newData.hero_url || null);
         }
       )
       .subscribe();
@@ -138,7 +153,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ activeTheme, activeThemeId, loading }}>
+    <ThemeContext.Provider value={{ activeTheme, activeThemeId, heroType, heroUrl, loading }}>
       {children}
     </ThemeContext.Provider>
   );

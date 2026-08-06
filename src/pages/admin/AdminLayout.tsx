@@ -34,6 +34,7 @@ import {
   Heart,
   UserCog,
   Palette,
+  ImagePlay,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { label: 'Under Development', path: '/admin/under-development', icon: Construction, requiredRole: 'admin' },
   { label: 'Role Management', path: '/admin/roles', icon: UserCog, requiredRole: 'super_admin' },
   { label: 'Themes', path: '/admin/themes', icon: Palette, requiredRole: 'super_admin' },
+  { label: 'Hero Banner', path: '/admin/hero-banner', icon: ImagePlay, requiredRole: 'super_admin' },
 ];
 
 const AdminLayout = () => {
