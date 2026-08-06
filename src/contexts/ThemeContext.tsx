@@ -36,10 +36,20 @@ export const useTheme = () => useContext(ThemeContext);
 function applyTheme(theme: AppTheme) {
   const root = document.documentElement;
 
-  // Set all CSS variables
+  // Set all CSS variables from the theme definition
   for (const [key, value] of Object.entries(theme.vars)) {
     root.style.setProperty(key, value);
   }
+
+  // Sync sidebar variables from core theme vars (sidebar matches main app)
+  root.style.setProperty('--sidebar-background', theme.vars['--background'] || '');
+  root.style.setProperty('--sidebar-foreground', theme.vars['--foreground'] || '');
+  root.style.setProperty('--sidebar-primary', theme.vars['--primary'] || '');
+  root.style.setProperty('--sidebar-primary-foreground', theme.vars['--primary-foreground'] || '');
+  root.style.setProperty('--sidebar-accent', theme.vars['--muted'] || '');
+  root.style.setProperty('--sidebar-accent-foreground', theme.vars['--foreground'] || '');
+  root.style.setProperty('--sidebar-border', theme.vars['--border'] || '');
+  root.style.setProperty('--sidebar-ring', theme.vars['--ring'] || '');
 
   // Toggle light/dark mode class
   if (theme.mode === 'dark') {
@@ -55,6 +65,9 @@ function applyTheme(theme: AppTheme) {
   if (meta) {
     meta.setAttribute('content', theme.preview.primary);
   }
+
+  // Force body background to match (catches any CSS specificity issues)
+  document.body.style.background = `hsl(${theme.vars['--background'] || ''})`;
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
