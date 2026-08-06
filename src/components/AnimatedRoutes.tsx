@@ -55,6 +55,7 @@ const AdminUnderDevelopment = React.lazy(() => import("@/pages/admin/AdminUnderD
 const AdminFeedback = React.lazy(() => import("@/pages/admin/AdminFeedback"));
 const AdminSuccessStories = React.lazy(() => import("@/pages/admin/AdminSuccessStories"));
 const AdminRoles = React.lazy(() => import("@/pages/admin/AdminRoles"));
+const AdminThemes = React.lazy(() => import("@/pages/admin/AdminThemes"));
 
 
 const pageVariants = {
@@ -252,6 +253,7 @@ const AnimatedRoutes = () => {
           <Route path="feedback" element={<AdminFeedback />} />
           <Route path="success-stories" element={<AdminRoute requiredRole="admin"><AdminSuccessStories /></AdminRoute>} />
           <Route path="roles" element={<AdminRoute requiredRole="super_admin"><AdminRoles /></AdminRoute>} />
+          <Route path="themes" element={<AdminRoute requiredRole="super_admin"><AdminThemes /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />

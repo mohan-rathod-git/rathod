@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { HelmetProvider } from "react-helmet-async";
 import RealtimeNotifications from "@/components/RealtimeNotifications";
 import PermissionRequests from "@/components/PermissionRequests";
@@ -35,14 +35,7 @@ const AppShell = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
 
-  // Force light mode — prevent reverting to old dark/saffron theme
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('dark');
-    if (!root.classList.contains('light')) {
-      root.classList.add('light');
-    }
-  }, []);
+  // Theme is now managed by ThemeProvider — no hardcoded light/dark override
 
   if (isAdminRoute) {
     return (
@@ -68,13 +61,15 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
-            <AppShell>
-              <RealtimeNotifications />
-              <PermissionRequests />
-              <AnimatedRoutes />
-            </AppShell>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <AppShell>
+                <RealtimeNotifications />
+                <PermissionRequests />
+                <AnimatedRoutes />
+              </AppShell>
+            </AuthProvider>
+          </ThemeProvider>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
@@ -82,3 +77,4 @@ const App = () => (
 );
 
 export default App;
+

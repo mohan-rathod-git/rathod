@@ -33,6 +33,7 @@ import {
   MessageSquare,
   Heart,
   UserCog,
+  Palette,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -57,6 +58,7 @@ const navItems: NavItem[] = [
   { label: 'Landing Hero', path: '/admin/landing', icon: Layout, requiredRole: 'admin' },
   { label: 'Under Development', path: '/admin/under-development', icon: Construction, requiredRole: 'admin' },
   { label: 'Role Management', path: '/admin/roles', icon: UserCog, requiredRole: 'super_admin' },
+  { label: 'Themes', path: '/admin/themes', icon: Palette, requiredRole: 'super_admin' },
 ];
 
 const AdminLayout = () => {
