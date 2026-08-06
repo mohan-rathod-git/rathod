@@ -36,7 +36,21 @@ const ProfileDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", id!).maybeSingle();
+      if (!id) { setLoading(false); return; }
+
+      // Try fetching by profile row `id` first, then fall back to `user_id`.
+      // Notifications link with `user_id` (/profile/<user_id>), but some
+      // internal links use the profile row UUID — we handle both here.
+      let data: any = null;
+
+      const byId = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+      if (byId.data) {
+        data = byId.data;
+      } else {
+        const byUserId = await supabase.from("profiles").select("*").eq("user_id", id).maybeSingle();
+        if (byUserId.data) data = byUserId.data;
+      }
+
       if (data) {
         // Hidden profile: non-owner gets a blocked view (RLS also enforces this server-side)
         const isOwner = user?.id === data.user_id;
