@@ -135,6 +135,13 @@ const AuthCallback = () => {
 
     const postLoginRedirect = async (user: any) => {
       try {
+        // Ensure profile row exists (critical for Google OAuth users who have no profile yet)
+        const { ensureProfileRow } = await import("@/lib/profilePersistence");
+        await ensureProfileRow(user, {
+          email: user.email ?? null,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+        });
+
         const { data: profile } = await supabase
           .from("profiles")
           .select("registration_step, profile_completion")

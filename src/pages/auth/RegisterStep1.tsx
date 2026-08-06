@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, User, Mail, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, User, Mail, Lock, Phone, AlertTriangle } from "lucide-react";
 import { STATES } from "@/types";
 import { ensureProfileRow } from "@/lib/profilePersistence";
 import { z } from "zod";
@@ -20,8 +20,9 @@ const RegisterStep1 = () => {
   const navigate = useNavigate();
   const { user, profile, refreshProfile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [ageBlocked, setAgeBlocked] = useState(false);
   const [form, setForm] = useState({
-    fullName: "", email: "", password: "", gender: "", dateOfBirth: "", state: "", cityVillage: "",
+    fullName: "", email: "", password: "", gender: "", dateOfBirth: "", state: "", cityVillage: "", phone: "",
   });
 
   // If user is already authenticated (came back with step=1), pre-fill form from profile
@@ -63,6 +64,7 @@ const RegisterStep1 = () => {
       date_of_birth: form.dateOfBirth || null,
       state: form.state || null,
       city_village: form.cityVillage || null,
+      phone: form.phone ? `+91${form.phone}` : null,
       registration_step: 2,
     });
 
@@ -88,13 +90,23 @@ const RegisterStep1 = () => {
         : z.string()
             .min(8, "Password must be at least 8 characters")
             .max(128, "Password too long"),
-      dateOfBirth: z.string().optional().refine((val) => {
-        if (!val) return true;
+      dateOfBirth: z.string().min(1, "Date of birth is required").refine((val) => {
+        if (!val) return false;
         const dob = new Date(val);
         if (isNaN(dob.getTime())) return false;
         const age = Math.floor((Date.now() - dob.getTime()) / 31557600000);
-        return age >= 18 && age <= 100;
-      }, "You must be at least 18 years old to register"),
+        return age >= 18;
+      }, "You must be at least 18 years old to register").refine((val) => {
+        if (!val) return false;
+        const dob = new Date(val);
+        if (isNaN(dob.getTime())) return false;
+        const age = Math.floor((Date.now() - dob.getTime()) / 31557600000);
+        return age <= 100;
+      }, "Invalid date of birth"),
+      phone: z.string().optional().refine((val) => {
+        if (!val || val === '') return true;
+        return /^\d{10}$/.test(val);
+      }, "Please enter a valid 10-digit mobile number"),
       state: z.string().optional(),
       cityVillage: z.string().max(80, "City/village name too long").optional(),
     });
@@ -109,7 +121,13 @@ const RegisterStep1 = () => {
 
     const validation = registerSchema.safeParse(sanitizedForm);
     if (!validation.success) {
-      toast.error(validation.error.errors[0].message);
+      const firstError = validation.error.errors[0];
+      if (firstError.path.includes('dateOfBirth') && firstError.message.includes('18')) {
+        setAgeBlocked(true);
+        toast.error("Your age is not above 18. You cannot create an account.");
+        return;
+      }
+      toast.error(firstError.message);
       return;
     }
 
@@ -246,8 +264,36 @@ const RegisterStep1 = () => {
         </div>
 
         <div className="animate-fade-up-4 space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Date of Birth</label>
-          <Input type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} className="h-12 rounded-2xl bg-card shadow-soft" />
+          <label className="text-xs font-medium text-muted-foreground">Date of Birth *</label>
+          <Input type="date" value={form.dateOfBirth} onChange={(e) => {
+            set("dateOfBirth", e.target.value);
+            setAgeBlocked(false);
+          }} className="h-12 rounded-2xl bg-card shadow-soft" max={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]} />
+          {ageBlocked && (
+            <div className="flex items-center gap-2 mt-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+              <p className="text-xs text-destructive font-medium">Your age is not above 18. You cannot create an account. Please go back.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="animate-fade-up-4 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Mobile Number</label>
+          <div className="relative">
+            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="absolute left-10 top-1/2 -translate-y-1/2 text-xs font-bold text-foreground flex items-center gap-1">
+              +91 <span className="h-3 w-px bg-border" />
+            </div>
+            <Input
+              type="tel"
+              maxLength={10}
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+              placeholder="9876543210"
+              className="pl-[5.5rem] h-12 rounded-2xl bg-card shadow-soft tracking-wider"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">Optional — helps with account recovery</p>
         </div>
 
         <div className="animate-fade-up-4 space-y-1.5">

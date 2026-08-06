@@ -9,6 +9,7 @@ import { getPostAuthRoute } from "@/lib/profileUtils";
 import { ensureProfileRow } from "@/lib/profilePersistence";
 import { motion, AnimatePresence } from "framer-motion";
 import MehendiPattern from "@/components/graphics/MehendiPattern";
+import { useTheme } from "@/contexts/ThemeContext";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,6 +52,7 @@ const GoogleIcon = () => (
 const Login = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { activeTheme } = useTheme();
 
   // Auth Mode: 'email' | 'phone'
   const [authMode, setAuthMode] = useState<"email" | "phone">("phone");
@@ -265,14 +267,43 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
       <div className="w-full max-w-md flex flex-col min-h-screen sm:min-h-0 sm:my-8 sm:rounded-3xl sm:shadow-premium sm:border sm:border-border/50 overflow-hidden bg-background">
-        {/* ═══ Premium Gradient Hero ═══ */}
+        {/* ═══ Theme-Aware Animated Gradient Hero ═══ */}
         <div className="relative px-6 pt-8 pb-10 text-center overflow-hidden z-0">
-          <div
-            className="absolute inset-0 animate-gradient-shift"
+          <motion.div
+            className="absolute inset-0"
             style={{
-              background: "linear-gradient(145deg, hsl(355 60% 22%) 0%, hsl(14 80% 52%) 40%, hsl(38 75% 55%) 70%, hsl(355 50% 32%) 100%)",
-              backgroundSize: "200% 200%",
+              background: activeTheme.heroGradient,
+              backgroundSize: '300% 300%',
             }}
+            animate={{
+              backgroundPosition: ['0% 0%', '100% 100%', '0% 100%', '100% 0%', '0% 0%'],
+            }}
+            transition={{
+              duration: 12,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+
+          {/* Floating orbs */}
+          <motion.div
+            className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-white/10"
+            animate={{
+              scale: [1, 1.15, 0.95, 1],
+              borderRadius: [
+                '60% 40% 30% 70% / 60% 30% 70% 40%',
+                '40% 60% 70% 30% / 40% 60% 30% 70%',
+                '60% 40% 30% 70% / 60% 30% 70% 40%',
+              ],
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/8"
+            animate={{
+              scale: [1, 1.2, 0.9, 1],
+            }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
           />
 
           <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
@@ -308,6 +339,7 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.4 }}
               className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight"
+              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}
             >
               Banjara Bandhan
             </motion.h1>
