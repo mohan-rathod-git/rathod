@@ -3,6 +3,7 @@
  *
  * Promote users to admin/moderator, demote or remove roles.
  * Every change is logged to the immutable audit trail.
+ * Search users by name/phone/email instead of requiring UUID.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { logAdminAction } from '@/lib/adminAudit';
 import { toast } from 'sonner';
-import { Shield, Search, UserPlus, ChevronDown, Loader2, Trash2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Shield, Search, UserPlus, ChevronDown, Loader2, Trash2, ShieldCheck, ShieldAlert, Phone, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 type AppRole = 'super_admin' | 'admin' | 'moderator';
@@ -27,8 +28,11 @@ const roleIcons: Record<AppRole, React.ElementType> = {
   moderator: ShieldCheck,
 };
 
+/** The default super admin phone — only they can create super_admins */
+const DEFAULT_SUPER_ADMIN_PHONES = ['8088291011', '+918088291011', '918088291011'];
+
 const AdminRoles = () => {
-  const { user: adminUser } = useAuth();
+  const { user: adminUser, profile: adminProfile } = useAuth();
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,10 +40,21 @@ const AdminRoles = () => {
 
   // Add role form
   const [showAdd, setShowAdd] = useState(false);
-  const [addUserId, setAddUserId] = useState('');
   const [addRole, setAddRole] = useState<AppRole>('moderator');
   const [addLoading, setAddLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // User search for granting role
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState<any[]>([]);
+  const [userSearching, setUserSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  // Check if current admin is the default super admin
+  const isDefaultSuperAdmin = (() => {
+    const phone = adminUser?.phone || adminProfile?.phone || '';
+    return DEFAULT_SUPER_ADMIN_PHONES.some(p => phone === p || phone.endsWith(p));
+  })();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,13 +64,17 @@ const AdminRoles = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setRoles(data);
+      // Filter to only admin/moderator/super_admin roles
+      const adminRoles = data.filter((r: any) =>
+        ['super_admin', 'admin', 'moderator'].includes(r.role)
+      );
+      setRoles(adminRoles);
       // Fetch profiles
-      const ids = data.map((r: any) => r.user_id);
+      const ids = adminRoles.map((r: any) => r.user_id);
       if (ids.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name, photo_url, email')
+          .select('user_id, full_name, photo_url, email, phone, gender')
           .in('user_id', ids);
         setProfileMap(new Map((profiles || []).map((p: any) => [p.user_id, p])));
       }
@@ -65,26 +84,67 @@ const AdminRoles = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Search users by name, phone, or email
+  const handleUserSearch = useCallback(async (query: string) => {
+    if (!query.trim() || query.trim().length < 2) {
+      setUserResults([]);
+      return;
+    }
+    setUserSearching(true);
+    const q = query.trim();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, photo_url, email, phone, gender')
+      .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
+      .limit(10);
+
+    if (!error && data) {
+      setUserResults(data);
+    }
+    setUserSearching(false);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => handleUserSearch(userSearch), 300);
+    return () => clearTimeout(timer);
+  }, [userSearch, handleUserSearch]);
+
   const handleAddRole = async () => {
-    if (!addUserId.trim() || !adminUser) return;
+    if (!selectedUser || !adminUser) return;
+
+    // Prevent non-default super_admin from creating super_admin roles
+    if (addRole === 'super_admin' && !isDefaultSuperAdmin) {
+      toast.error('Only the default super admin can create other super admins');
+      return;
+    }
+
     setAddLoading(true);
 
     await logAdminAction(adminUser.id, {
       action: 'role_change',
       targetType: 'user',
-      targetId: addUserId,
-      details: { new_role: addRole, op: 'grant' },
+      targetId: selectedUser.user_id,
+      details: { new_role: addRole, op: 'grant', user_name: selectedUser.full_name },
     });
+
+    // Delete any existing admin role for this user first, then insert new one
+    await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', selectedUser.user_id)
+      .in('role', ['super_admin', 'admin', 'moderator'] as any[]);
 
     const { error } = await supabase
       .from('user_roles')
-      .upsert({ user_id: addUserId, role: addRole }, { onConflict: 'user_id' });
+      .insert({ user_id: selectedUser.user_id, role: addRole as any });
 
     if (error) {
       toast.error(`Failed to assign role: ${error.message}`);
     } else {
-      toast.success(`Role ${addRole} granted`);
-      setAddUserId('');
+      toast.success(`Role ${addRole} granted to ${selectedUser.full_name}`);
+      setSelectedUser(null);
+      setUserSearch('');
+      setUserResults([]);
       setShowAdd(false);
       load();
     }
@@ -93,6 +153,13 @@ const AdminRoles = () => {
 
   const handleChangeRole = async (userId: string, newRole: AppRole) => {
     if (!adminUser) return;
+
+    // Prevent non-default super_admin from changing to super_admin
+    if (newRole === 'super_admin' && !isDefaultSuperAdmin) {
+      toast.error('Only the default super admin can assign super admin role');
+      return;
+    }
+
     setActionLoading(userId);
 
     await logAdminAction(adminUser.id, {
@@ -102,10 +169,16 @@ const AdminRoles = () => {
       details: { new_role: newRole, op: 'change' },
     });
 
+    // Delete existing admin roles and insert new one
+    await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+      .in('role', ['super_admin', 'admin', 'moderator'] as any[]);
+
     const { error } = await supabase
       .from('user_roles')
-      .update({ role: newRole })
-      .eq('user_id', userId);
+      .insert({ user_id: userId, role: newRole as any });
 
     if (error) { toast.error('Failed to change role'); }
     else { toast.success(`Role updated to ${newRole}`); load(); }
@@ -124,7 +197,12 @@ const AdminRoles = () => {
       details: { op: 'revoke' },
     });
 
-    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId);
+    const { error } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+      .in('role', ['super_admin', 'admin', 'moderator'] as any[]);
+
     if (error) { toast.error('Failed to revoke role'); }
     else { toast.success(`Privileges revoked from ${name}`); load(); }
     setActionLoading(null);
@@ -136,6 +214,8 @@ const AdminRoles = () => {
     const q = search.toLowerCase();
     return (
       (p?.full_name || '').toLowerCase().includes(q) ||
+      (p?.phone || '').toLowerCase().includes(q) ||
+      (p?.email || '').toLowerCase().includes(q) ||
       r.user_id.toLowerCase().includes(q)
     );
   });
@@ -153,7 +233,7 @@ const AdminRoles = () => {
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-saffron text-white text-sm font-bold"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-soft hover:bg-primary/90 transition-colors"
         >
           <UserPlus className="h-4 w-4" />
           Grant Role
@@ -168,36 +248,80 @@ const AdminRoles = () => {
           className="mb-6 rounded-2xl bg-card border border-border/30 p-5 shadow-soft"
         >
           <h3 className="font-heading text-sm font-bold text-foreground mb-4">Grant Role to User</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground mb-1 block">User UUID</label>
+
+          {/* User search */}
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Search User by Name, Phone, or Email</label>
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
-                value={addUserId}
-                onChange={(e) => setAddUserId(e.target.value)}
-                placeholder="Paste user UUID from Auth → Users..."
-                className="w-full rounded-xl bg-muted px-4 py-2.5 text-sm border-0 font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                value={userSearch}
+                onChange={(e) => { setUserSearch(e.target.value); setSelectedUser(null); }}
+                placeholder="Type name, phone, or email..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-muted text-sm border-0 focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
+              {userSearching && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
             </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Role</label>
-              <select
-                value={addRole}
-                onChange={(e) => setAddRole(e.target.value as AppRole)}
-                className="w-full rounded-xl bg-muted px-4 py-2.5 text-sm border-0 focus:outline-none"
-              >
-                <option value="moderator">Moderator</option>
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
-            </div>
+
+            {/* Search results dropdown */}
+            {userResults.length > 0 && !selectedUser && (
+              <div className="mt-2 rounded-xl border border-border/30 bg-card overflow-hidden shadow-soft max-h-48 overflow-y-auto">
+                {userResults.map((u) => (
+                  <button
+                    key={u.user_id}
+                    onClick={() => { setSelectedUser(u); setUserResults([]); setUserSearch(u.full_name || u.email || ''); }}
+                    className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <img src={u.photo_url || '/placeholder.svg'} alt="" className="h-8 w-8 rounded-lg object-cover bg-muted" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{u.full_name || 'Unnamed'}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        {u.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{u.phone}</span>}
+                        {u.email && <span>{u.email}</span>}
+                        {u.gender && <span className="capitalize">· {u.gender}</span>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Selected user badge */}
+            {selectedUser && (
+              <div className="mt-2 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                <img src={selectedUser.photo_url || '/placeholder.svg'} alt="" className="h-8 w-8 rounded-lg object-cover bg-muted" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{selectedUser.full_name || 'Unnamed'}</p>
+                  <p className="text-[10px] text-muted-foreground">{selectedUser.phone || selectedUser.email}</p>
+                </div>
+                <button onClick={() => { setSelectedUser(null); setUserSearch(''); }} className="text-muted-foreground hover:text-foreground">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex gap-3 justify-end mt-4">
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+
+          {/* Role selector */}
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Role</label>
+            <select
+              value={addRole}
+              onChange={(e) => setAddRole(e.target.value as AppRole)}
+              className="w-full rounded-xl bg-muted px-4 py-2.5 text-sm border-0 focus:outline-none"
+            >
+              <option value="moderator">Moderator</option>
+              <option value="admin">Admin</option>
+              {isDefaultSuperAdmin && <option value="super_admin">Super Admin</option>}
+            </select>
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <button onClick={() => { setShowAdd(false); setSelectedUser(null); setUserSearch(''); }} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
               Cancel
             </button>
             <button
               onClick={handleAddRole}
-              disabled={!addUserId.trim() || addLoading}
+              disabled={!selectedUser || addLoading}
               className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
             >
               {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
@@ -213,7 +337,7 @@ const AdminRoles = () => {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or UUID..."
+          placeholder="Search by name, phone, email, or UUID..."
           className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border/30 text-sm focus:outline-none focus:border-primary/30"
         />
       </div>
@@ -251,7 +375,16 @@ const AdminRoles = () => {
                     <p className="font-semibold text-sm text-foreground truncate">
                       {profile?.full_name || 'Unknown User'}
                     </p>
-                    <p className="text-[10px] text-muted-foreground font-mono truncate">{r.user_id}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {profile?.phone && (
+                        <span className="flex items-center gap-0.5">
+                          <Phone className="h-2.5 w-2.5" />
+                          {profile.phone}
+                        </span>
+                      )}
+                      {profile?.gender && <span className="capitalize">· {profile.gender}</span>}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{r.user_id}</p>
                   </div>
 
                   <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full capitalize ${roleColors[r.role as AppRole] || ''}`}>
@@ -269,7 +402,7 @@ const AdminRoles = () => {
                     >
                       <option value="moderator">Moderator</option>
                       <option value="admin">Admin</option>
-                      <option value="super_admin">Super Admin</option>
+                      {isDefaultSuperAdmin && <option value="super_admin">Super Admin</option>}
                     </select>
                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                   </div>

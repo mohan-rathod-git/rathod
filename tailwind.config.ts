@@ -81,13 +81,13 @@ export default {
         "4xl": "2rem",
       },
       boxShadow: {
-        "soft": "0 1px 3px 0 hsl(var(--foreground) / 0.04), 0 4px 12px -2px hsl(var(--foreground) / 0.06)",
-        "medium": "0 2px 8px -2px hsl(var(--foreground) / 0.06), 0 8px 24px -4px hsl(var(--foreground) / 0.08)",
-        "elevated": "0 4px 16px -4px hsl(var(--foreground) / 0.08), 0 12px 40px -8px hsl(var(--foreground) / 0.12)",
-        "glow-primary": "0 4px 24px -4px hsl(var(--primary) / 0.3)",
-        "glow-gold": "0 4px 24px -4px hsl(var(--gold-shimmer) / 0.3)",
-        "inner-glow": "inset 0 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 0 rgba(0,0,0,0.05)",
-        "premium": "0 8px 32px -8px hsl(var(--primary) / 0.2), 0 16px 48px -12px hsl(var(--foreground) / 0.1)",
+        "soft": "0 1px 3px 0 rgba(0,0,0,0.04), 0 4px 12px -2px rgba(0,0,0,0.05)",
+        "medium": "0 2px 8px -2px rgba(0,0,0,0.06), 0 8px 24px -4px rgba(0,0,0,0.07)",
+        "elevated": "0 4px 16px -4px rgba(0,0,0,0.08), 0 12px 40px -8px rgba(0,0,0,0.1)",
+        "glow-primary": "0 4px 24px -4px hsl(var(--primary) / 0.25)",
+        "glow-gold": "0 4px 24px -4px hsl(var(--gold-shimmer) / 0.25)",
+        "inner-glow": "inset 0 1px 0 0 rgba(255,255,255,0.15), inset 0 -1px 0 0 rgba(0,0,0,0.03)",
+        "premium": "0 8px 32px -8px hsl(var(--primary) / 0.15), 0 16px 48px -12px rgba(0,0,0,0.08)",
       },
       keyframes: {
         "accordion-down": {

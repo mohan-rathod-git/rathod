@@ -6,6 +6,8 @@
  *
  * Role hierarchy:
  *   super_admin > admin > moderator > user (no access)
+ *
+ * Auto-provisions super_admin for the default admin phone (8088291011).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -25,13 +27,64 @@ interface AdminRoleState {
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
+/** The default super admin phone number — always gets super_admin role */
+const DEFAULT_SUPER_ADMIN_PHONES = ['8088291011', '+918088291011', '918088291011'];
+
+/** Role priority — higher number = higher privilege */
+const ROLE_PRIORITY: Record<string, number> = {
+  moderator: 1,
+  admin: 2,
+  super_admin: 3,
+};
+
 export function useAdminRole(): AdminRoleState {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [role, setRole] = useState<AdminRole>(null);
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const lastActivityRef = useRef<number>(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const provisionedRef = useRef(false);
+
+  // Check if current user is the default super admin by phone
+  const isDefaultSuperAdmin = useCallback((): boolean => {
+    const userPhone = user?.phone || profile?.phone || '';
+    return DEFAULT_SUPER_ADMIN_PHONES.some(
+      (p) => userPhone === p || userPhone.endsWith(p)
+    );
+  }, [user, profile]);
+
+  // Auto-provision super_admin for default admin phone
+  const autoProvisionSuperAdmin = useCallback(async () => {
+    if (!user || provisionedRef.current) return;
+    if (!isDefaultSuperAdmin()) return;
+
+    provisionedRef.current = true;
+
+    try {
+      // Check if super_admin role already exists for this user
+      const { data: existing } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'super_admin' as any);
+
+      if (existing && existing.length > 0) return; // Already has super_admin
+
+      // Insert super_admin role
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({ user_id: user.id, role: 'super_admin' as any });
+
+      if (error && !error.message.includes('duplicate')) {
+        console.error('Failed to auto-provision super_admin:', error);
+      } else {
+        console.log('[AdminRole] Auto-provisioned super_admin for default admin phone');
+      }
+    } catch (err) {
+      console.error('Auto-provision error:', err);
+    }
+  }, [user, isDefaultSuperAdmin]);
 
   // Fetch role from user_roles table
   useEffect(() => {
@@ -42,19 +95,32 @@ export function useAdminRole(): AdminRoleState {
         return;
       }
 
+      // Auto-provision super_admin for default phone BEFORE fetching roles
+      await autoProvisionSuperAdmin();
+
       try {
+        // Fetch ALL admin roles for this user (they may have multiple)
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .in('role', ['super_admin', 'admin', 'moderator'])
-          .maybeSingle();
+          .in('role', ['super_admin', 'admin', 'moderator']);
 
         if (error) {
           console.error('Failed to fetch admin role:', error);
           setRole(null);
-        } else if (data) {
-          setRole(data.role as AdminRole);
+        } else if (data && data.length > 0) {
+          // Pick the highest-privilege role
+          let highestRole: AdminRole = null;
+          let highestPriority = 0;
+          for (const row of data) {
+            const priority = ROLE_PRIORITY[row.role as string] || 0;
+            if (priority > highestPriority) {
+              highestPriority = priority;
+              highestRole = row.role as AdminRole;
+            }
+          }
+          setRole(highestRole);
         } else {
           setRole(null);
         }
@@ -67,7 +133,7 @@ export function useAdminRole(): AdminRoleState {
     };
 
     fetchRole();
-  }, [user]);
+  }, [user, autoProvisionSuperAdmin]);
 
   // Track user activity for idle timeout
   const resetIdleTimer = useCallback(() => {

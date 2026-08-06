@@ -77,7 +77,7 @@ const AdminSuccessStories = () => {
 
       if (error) { toast.error('Failed to update story'); }
       else {
-        await logAdminAction(adminUser.id, { action: 'verify_user', targetType: 'system', targetId: editId, details: { op: 'update_story', names: form.names } });
+        await logAdminAction(adminUser.id, { action: 'manage_story' as any, targetType: 'system', targetId: editId, details: { op: 'update_story', names: form.names } });
         toast.success('Story updated');
         resetForm();
         load();
@@ -109,7 +109,7 @@ const AdminSuccessStories = () => {
     const { error } = await (supabase as any).from('success_stories').delete().eq('id', id);
     if (error) { toast.error('Failed to delete'); }
     else {
-      await logAdminAction(adminUser.id, { action: 'verify_user', targetType: 'system', targetId: id, details: { op: 'delete_story', names } });
+      await logAdminAction(adminUser.id, { action: 'manage_story' as any, targetType: 'system', targetId: id, details: { op: 'delete_story', names } });
       toast.success('Story deleted');
       load();
     }

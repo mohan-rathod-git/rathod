@@ -2,7 +2,6 @@ import { Crown, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import MehendiPattern from "@/components/graphics/MehendiPattern";
 import NotificationBell from "@/components/NotificationBell";
 
 interface HomeHeaderProps {
@@ -18,29 +17,18 @@ const HomeHeader = ({ userName }: HomeHeaderProps) => {
   return (
     <header className="relative overflow-hidden">
       <div className="relative px-5 pb-10 pt-12 overflow-hidden">
-        {/* Animated premium gradient */}
+        {/* Premium white-theme gradient — elegant indigo → violet */}
         <div
           className="absolute inset-0 animate-gradient-shift"
           style={{
-            background: "linear-gradient(145deg, hsl(14 80% 52%) 0%, hsl(355 50% 32%) 40%, hsl(14 80% 52%) 70%, hsl(38 75% 55%) 100%)",
+            background: "linear-gradient(145deg, hsl(239 84% 67%) 0%, hsl(250 70% 50%) 35%, hsl(262 83% 58%) 65%, hsl(270 60% 55%) 100%)",
             backgroundSize: "200% 200%",
           }}
         />
 
         {/* Decorative circles */}
-        <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-white/5 animate-morph" />
+        <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-white/8 animate-morph" />
         <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-white/5" />
-
-        {/* Subtle mehendi corner */}
-        <div className="absolute top-0 right-0 pointer-events-none opacity-60">
-          <MehendiPattern
-            variant="corner-tl"
-            color="white"
-            opacity={0.06}
-            className="w-[180px] h-[180px] transform scale-x-[-1]"
-            animate={false}
-          />
-        </div>
 
         {/* Floating sparkle */}
         <motion.div
@@ -48,7 +36,7 @@ const HomeHeader = ({ userName }: HomeHeaderProps) => {
           animate={{ y: [-2, 3, -2], opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Sparkles className="h-3.5 w-3.5 text-amber-300/40" />
+          <Sparkles className="h-3.5 w-3.5 text-violet-200/40" />
         </motion.div>
 
         <div className="relative z-10">
@@ -87,7 +75,7 @@ const HomeHeader = ({ userName }: HomeHeaderProps) => {
               <motion.button
                 whileTap={{ scale: 0.88 }}
                 onClick={() => navigate("/subscription")}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/90 text-accent-foreground backdrop-blur-sm shadow-glow-gold active:scale-95 transition-transform border border-accent/30"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur-sm shadow-[0_4px_12px_rgba(0,0,0,0.1)] active:scale-95 transition-transform border border-white/10"
               >
                 <Crown className="h-5 w-5" />
               </motion.button>

@@ -58,24 +58,21 @@ const AdminBroadcasts = () => {
       details: { title: form.title, recipient_count: recipientCount },
     });
 
-    // Insert broadcast record
+    // Insert broadcast record — use sender_id (matches DB schema)
     const { error } = await supabase
       .from('admin_broadcasts' as any)
       .insert({
-        admin_id: adminUser.id,
+        sender_id: adminUser.id,
         title: form.title,
         body: form.body,
-        deep_link: form.deepLink || null,
+        target_filter: form.deepLink ? { deep_link: form.deepLink } : {},
         recipient_count: recipientCount || 0,
-        status: 'sent',
-        sent_at: new Date().toISOString(),
       } as any);
 
     if (error) {
       console.error("Broadcast insert error:", error);
-      if (error.message.includes('relation "public.admin_broadcasts" does not exist')) {
+      if (error.message.includes('does not exist')) {
          toast.warning("Broadcast logged, but history table missing. Please run the SQL migration for admin_broadcasts.", { duration: 6000 });
-         // Fallback: we still logged it to audit, so clear form
          setForm({ title: '', body: '', deepLink: '' });
          setShowCompose(false);
       } else {
@@ -225,7 +222,7 @@ const AdminBroadcasts = () => {
                 <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
                   <span>{bc.recipient_count?.toLocaleString()} recipients</span>
                   <span>·</span>
-                  <span>{new Date(bc.sent_at || bc.created_at).toLocaleString()}</span>
+                <span>{new Date(bc.created_at).toLocaleString()}</span>
                 </div>
               </div>
             );

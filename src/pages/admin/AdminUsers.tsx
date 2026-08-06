@@ -291,16 +291,17 @@ const AdminUsers = () => {
         </motion.div>
       )}
 
-      {/* Table */}
       <div className="rounded-2xl bg-card border border-border/30 overflow-hidden shadow-soft">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/30 bg-muted/30">
                 <th className="text-left px-4 py-3 font-semibold text-muted-foreground">User</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Location</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden lg:table-cell">Joined</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden sm:table-cell">Phone</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Gender</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden md:table-cell">Location</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden lg:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-muted-foreground hidden xl:table-cell">Joined</th>
                 <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Actions</th>
               </tr>
             </thead>
@@ -311,13 +312,15 @@ const AdminUsers = () => {
                     <td className="px-4 py-3"><div className="h-5 w-32 bg-muted rounded animate-pulse" /></td>
                     <td className="px-4 py-3 hidden sm:table-cell"><div className="h-5 w-24 bg-muted rounded animate-pulse" /></td>
                     <td className="px-4 py-3 hidden md:table-cell"><div className="h-5 w-16 bg-muted rounded animate-pulse" /></td>
-                    <td className="px-4 py-3 hidden lg:table-cell"><div className="h-5 w-20 bg-muted rounded animate-pulse" /></td>
+                    <td className="px-4 py-3 hidden md:table-cell"><div className="h-5 w-24 bg-muted rounded animate-pulse" /></td>
+                    <td className="px-4 py-3 hidden lg:table-cell"><div className="h-5 w-16 bg-muted rounded animate-pulse" /></td>
+                    <td className="px-4 py-3 hidden xl:table-cell"><div className="h-5 w-20 bg-muted rounded animate-pulse" /></td>
                     <td className="px-4 py-3"><div className="h-5 w-20 bg-muted rounded animate-pulse ml-auto" /></td>
                   </tr>
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     No users found
                   </td>
                 </tr>
@@ -337,10 +340,22 @@ const AdminUsers = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">
-                      {u.city_village ? `${u.city_village}, ${u.state}` : u.state || '—'}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <span className="text-xs text-foreground font-mono">{u.phone || '—'}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
+                      <span className={`text-xs font-semibold capitalize px-2 py-0.5 rounded-full ${
+                        u.gender === 'male' ? 'text-blue-600 bg-blue-500/10' :
+                        u.gender === 'female' ? 'text-pink-600 bg-pink-500/10' :
+                        'text-muted-foreground bg-muted'
+                      }`}>
+                        {u.gender || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
+                      {u.city_village ? `${u.city_village}, ${u.state}` : u.state || '—'}
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
                       <div className="flex items-center gap-1.5">
                         {u.is_verified && (
                           <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -357,7 +372,7 @@ const AdminUsers = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
+                    <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground text-xs">
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">

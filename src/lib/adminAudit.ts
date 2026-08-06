@@ -21,7 +21,9 @@ export type AuditAction =
   | 'bulk_export'
   | 'role_change'
   | 'delete_user'
-  | 'impersonate_view';
+  | 'impersonate_view'
+  | 'USER_FEEDBACK'
+  | 'manage_story';
 
 export type AuditTargetType =
   | 'user'

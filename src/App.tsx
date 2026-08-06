@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -33,6 +34,15 @@ const AppShell = ({ children }: { children: React.ReactNode }) => {
   useKeyboardViewport();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  // Force light mode — prevent reverting to old dark/saffron theme
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('dark');
+    if (!root.classList.contains('light')) {
+      root.classList.add('light');
+    }
+  }, []);
 
   if (isAdminRoute) {
     return (
