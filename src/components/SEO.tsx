@@ -12,7 +12,7 @@ interface SEOProps {
 export default function SEO({
   title = 'Banjara Bandhan - Matrimony',
   description = 'Connecting Souls of the Wandering Star — Premium Banjara Community Matrimony Platform',
-  image = '/logo.jpg',
+  image = '/pwa-512.png',
   url = 'https://www.banjarabandhan.in',
   type = 'website',
   structuredData
