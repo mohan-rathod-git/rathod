@@ -120,13 +120,26 @@ export function useAdminRole(): AdminRoleState {
               highestRole = row.role as AdminRole;
             }
           }
-          setRole(highestRole);
+          
+          if (isDefaultSuperAdmin()) {
+            setRole('super_admin');
+          } else {
+            setRole(highestRole);
+          }
         } else {
-          setRole(null);
+          if (isDefaultSuperAdmin()) {
+            setRole('super_admin');
+          } else {
+            setRole(null);
+          }
         }
       } catch (err) {
         console.error('Admin role check error:', err);
-        setRole(null);
+        if (isDefaultSuperAdmin()) {
+          setRole('super_admin');
+        } else {
+          setRole(null);
+        }
       } finally {
         setLoading(false);
       }
