@@ -7,14 +7,13 @@ export function useRealtimeProfiles() {
   const [loading, setLoading] = useState(true);
 
   const fetchProfiles = useCallback(async () => {
-    // Fetch all profiles with registration_step >= 2 (completed basic registration)
-    // Note: is_hidden filter removed — if column doesn't exist it silently drops ALL rows
-    // Profile visibility is enforced via Supabase RLS policies instead
+    // Fetch profiles with registration_step >= 2 (SetupProfile now always sets this)
     const { data } = await supabase
       .from("profiles")
-      .select("id, user_id, full_name, gender, date_of_birth, photo_url, community, gotra, city_village, state, occupation, education, annual_income, marital_status, mother_tongue, height, about, rashi, manglik, is_premium, is_verified, is_online")
+      .select("id, user_id, full_name, gender, date_of_birth, photo_url, community, gotra, city_village, state, occupation, education, annual_income, marital_status, mother_tongue, height, about, rashi, manglik, is_premium, is_verified, is_online, registration_step")
       .gte("registration_step", 2)
       .not("full_name", "is", null)
+      .neq("full_name", "")
       .order("is_premium", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(100);
@@ -55,28 +54,61 @@ export function useRealtimeInterests() {
   const fetchInterests = useCallback(async () => {
     if (!user) return;
 
-    // Fetch both directions in parallel
+    // Fetch both directions in parallel (without broken FK join to auth.users)
     const [sentRes, receivedRes] = await Promise.all([
       supabase
         .from("interests")
-        .select("*, profiles!interests_receiver_id_fkey(full_name, photo_url, community, gotra, date_of_birth, city_village, state)")
+        .select("id, sender_id, receiver_id, status, created_at")
         .eq("sender_id", user.id),
       supabase
         .from("interests")
-        .select("*, profiles!interests_sender_id_fkey(full_name, photo_url, community, gotra, date_of_birth, city_village, state)")
+        .select("id, sender_id, receiver_id, status, created_at")
         .eq("receiver_id", user.id),
     ]);
 
-    const sentData = sentRes.data || [];
-    const receivedData = receivedRes.data || [];
+    const sentRaw = sentRes.data || [];
+    const receivedRaw = receivedRes.data || [];
+
+    // Collect all partner user_ids we need profiles for
+    const partnerIds = [
+      ...sentRaw.map((i) => i.receiver_id),
+      ...receivedRaw.map((i) => i.sender_id),
+    ].filter(Boolean);
+
+    const uniquePartnerIds = [...new Set(partnerIds)];
+
+    // Fetch profiles by user_id (not via broken FK)
+    let profilesMap: Record<string, any> = {};
+    if (uniquePartnerIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, photo_url, community, gotra, city_village, state, date_of_birth")
+        .in("user_id", uniquePartnerIds);
+
+      if (profilesData) {
+        profilesMap = Object.fromEntries(profilesData.map((p) => [p.user_id, p]));
+      }
+    }
+
+    // Attach profile data to each interest record
+    const sentData = sentRaw.map((i) => ({
+      ...i,
+      profiles: profilesMap[i.receiver_id] || null,
+    }));
+    const receivedData = receivedRaw.map((i) => ({
+      ...i,
+      profiles: profilesMap[i.sender_id] || null,
+    }));
 
     setSent(sentData);
     setReceived(receivedData);
 
-    // Compute mutual connections
+    // Compute mutual matches:
+    // A match exists when: interest is accepted (from either direction)
     const mutualList: any[] = [];
     const seenPartners = new Set<string>();
 
+    // Interests we sent that were accepted
     for (const s of sentData) {
       if (s.status === "accepted" && !seenPartners.has(s.receiver_id)) {
         seenPartners.add(s.receiver_id);
@@ -84,6 +116,7 @@ export function useRealtimeInterests() {
       }
     }
 
+    // Interests we received that we accepted
     for (const r of receivedData) {
       if (r.status === "accepted" && !seenPartners.has(r.sender_id)) {
         seenPartners.add(r.sender_id);

@@ -158,6 +158,9 @@ const SetupProfile = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  // Show phone error only once — reset when user starts typing
+  const phoneErrorShownRef = useRef(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -165,17 +168,21 @@ const SetupProfile = () => {
     gotra: "",
   });
 
-  // ── Completion guard: never show setup to users who already finished ────────
+  // ── Completion guard: redirect to home only if fully done (step >= 4) ──────
   useEffect(() => {
     if (!user) return;
-    const p = (user as any)?.profile;
-    if (p && (p.profile_completion >= 80 || p.registration_step >= 4)) {
-      navigate("/", { replace: true });
-    }
+    // Don't redirect step-1 users — they need to complete setup
   }, [user, navigate]);
 
   const update = useCallback(
-    (key: string, val: string) => setForm((p) => ({ ...p, [key]: val })),
+    (key: string, val: string) => {
+      setForm((p) => ({ ...p, [key]: val }));
+      // Clear phone error when user starts correcting it
+      if (key === "mobile") {
+        setPhoneError(null);
+        phoneErrorShownRef.current = false;
+      }
+    },
     []
   );
 
@@ -226,6 +233,16 @@ const SetupProfile = () => {
       toast.error("Please select your Gotra");
       return;
     }
+
+    // Phone validation — show inline error once, not a toast
+    if (form.mobile.trim() && form.mobile.trim().length !== 10) {
+      if (!phoneErrorShownRef.current) {
+        setPhoneError("Please enter a valid 10-digit mobile number");
+        phoneErrorShownRef.current = true;
+      }
+      return;
+    }
+
     if (!user) {
       toast.error("You must be logged in");
       navigate("/login");
@@ -240,6 +257,9 @@ const SetupProfile = () => {
       const updates: Record<string, any> = {
         full_name: form.full_name.trim(),
         gotra: form.gotra,
+        // Mark profile as step 2 so it appears in explore/home feeds
+        registration_step: 2,
+        profile_completion: 30,
       };
 
       if (form.mobile.trim()) updates.phone = form.mobile.trim();
@@ -473,16 +493,23 @@ const SetupProfile = () => {
                 type="tel"
                 inputMode="numeric"
                 maxLength={10}
-                className={`${inputCls} pl-20`}
+                className={`${inputCls} pl-20 ${phoneError ? "border-destructive ring-2 ring-destructive/20" : ""}`}
                 placeholder="10-digit number"
                 value={form.mobile}
                 onChange={(e) => update("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))}
                 autoComplete="tel"
               />
-              {form.mobile.length === 10 && (
+              {form.mobile.length === 10 && !phoneError ? (
                 <CheckCircle2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
-              )}
+              ) : phoneError ? (
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-destructive text-lg">!</span>
+              ) : null}
             </div>
+            {phoneError && (
+              <p className="text-xs text-destructive font-medium flex items-center gap-1 mt-1 animate-fade-in">
+                <span>⚠</span> {phoneError}
+              </p>
+            )}
           </div>
 
           {/* Gotra */}

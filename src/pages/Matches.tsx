@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Heart, Check, X, Loader2, MessageCircle, UserPlus, Send } from "lucide-react";
 import { useRealtimeInterests } from "@/hooks/useRealtime";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,14 +30,24 @@ const Matches = () => {
 
   const handleAccept = async (interestId: string) => {
     const { error } = await supabase.from("interests").update({ status: "accepted" }).eq("id", interestId);
-    if (error) toast.error("Failed to accept");
-    else { toast.success("Interest accepted! 🎉"); refetch(); }
+    if (error) {
+      console.error("Accept failed:", error);
+      toast.error("Failed to accept");
+    } else {
+      toast.success("Interest accepted! You're now matched! 🎉");
+      refetch();
+    }
   };
 
   const handleDecline = async (interestId: string) => {
     const { error } = await supabase.from("interests").update({ status: "declined" }).eq("id", interestId);
-    if (error) toast.error("Failed to decline");
-    else { toast("Interest declined"); refetch(); }
+    if (error) {
+      console.error("Decline failed:", error);
+      toast.error("Failed to decline");
+    } else {
+      toast("Interest declined");
+      refetch();
+    }
   };
 
   const pendingReceived = received.filter((r) => r.status === "pending");
@@ -106,6 +116,7 @@ const Matches = () => {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
+              {/* ── Received Tab ── */}
               {activeTab === "Received" && (pendingReceived.length > 0 ? pendingReceived.map((r, i) => {
                 const p = r.profiles;
                 return (
@@ -116,11 +127,14 @@ const Matches = () => {
                     transition={{ delay: i * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                     className="flex items-center gap-3.5 rounded-2xl bg-card p-3.5 shadow-soft border border-border/30 mb-2.5 hover:shadow-medium transition-all group"
                   >
-                    <div className="h-14 w-14 rounded-2xl overflow-hidden ring-2 ring-border/30 group-hover:ring-primary/20 transition-all">
-                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <div
+                      className="h-14 w-14 rounded-2xl overflow-hidden ring-2 ring-border/30 group-hover:ring-primary/20 transition-all cursor-pointer"
+                      onClick={() => navigate(`/profile/${r.sender_id}`)}
+                    >
+                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name || "Profile"} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name}</h4>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/profile/${r.sender_id}`)}>
+                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name || "Unknown"}</h4>
                       <p className="text-xs text-muted-foreground">{p?.community} · {p?.city_village || p?.state}</p>
                     </div>
                     <div className="flex gap-2">
@@ -150,26 +164,29 @@ const Matches = () => {
                 />
               ))}
 
+              {/* ── Sent Tab ── */}
               {activeTab === "Sent" && (sent.length > 0 ? sent.map((s, i) => {
                 const p = s.profiles;
+                const statusLabel = s.status === "accepted" ? "Matched ✓" : s.status === "declined" ? "Declined" : "Pending";
                 return (
                   <motion.div
                     key={s.id}
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex items-center gap-3.5 rounded-2xl bg-card p-3.5 shadow-soft border border-border/30 mb-2.5 hover:shadow-medium transition-all group"
+                    onClick={() => navigate(`/profile/${s.receiver_id}`)}
+                    className="flex items-center gap-3.5 rounded-2xl bg-card p-3.5 shadow-soft border border-border/30 mb-2.5 hover:shadow-medium transition-all group cursor-pointer"
                   >
                     <div className="h-14 w-14 rounded-2xl overflow-hidden ring-2 ring-border/30 group-hover:ring-primary/20 transition-all">
-                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name || "Profile"} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name}</h4>
+                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name || "Unknown"}</h4>
                       <p className="text-xs text-muted-foreground">{p?.community} · {p?.city_village || p?.state}</p>
                     </div>
                     <span className={`rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${
                       s.status === "accepted" ? "bg-teal/10 text-teal" : s.status === "declined" ? "bg-destructive/10 text-destructive" : "bg-accent/15 text-accent-foreground"
-                    }`}>{s.status}</span>
+                    }`}>{statusLabel}</span>
                   </motion.div>
                 );
               }) : (
@@ -181,6 +198,7 @@ const Matches = () => {
                 />
               ))}
 
+              {/* ── Mutual Tab ── */}
               {activeTab === "Mutual" && (mutual.length > 0 ? mutual.map((m, i) => {
                 const p = m.profiles;
                 const partnerId = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
@@ -195,10 +213,10 @@ const Matches = () => {
                     className="flex items-center gap-3.5 rounded-2xl bg-card p-3.5 shadow-soft border border-border/30 w-full text-left hover:shadow-elevated hover:border-primary/10 transition-all mb-2.5 group"
                   >
                     <div className="h-14 w-14 rounded-2xl overflow-hidden ring-2 ring-border/30 group-hover:ring-primary/20 transition-all">
-                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <img src={p?.photo_url || "/placeholder.svg"} alt={p?.full_name || "Profile"} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name}</h4>
+                      <h4 className="font-heading text-sm font-semibold text-foreground truncate">{p?.full_name || "Unknown"}</h4>
                       <p className="text-xs text-muted-foreground">{p?.community} · {p?.city_village || p?.state}</p>
                     </div>
                     <span className="flex items-center gap-1 rounded-full bg-teal/10 text-teal px-3 py-1.5 text-[10px] font-bold group-hover:bg-teal/15 transition-colors">
@@ -210,7 +228,7 @@ const Matches = () => {
                 <EmptyStateGraphic
                   variant="no-matches"
                   title="No matches yet"
-                  subtitle="Mutual interest creates a match — keep exploring!"
+                  subtitle="Accept an interest to create a match — keep exploring!"
                   action={{ label: "Find Matches", onClick: () => navigate("/explore") }}
                 />
               ))}
