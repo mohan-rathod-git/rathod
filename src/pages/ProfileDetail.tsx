@@ -25,6 +25,7 @@ const ProfileDetail = () => {
   const [profile, setProfile] = useState<any>(null);
   const [rawProfile, setRawProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const viewStartRef = useRef<number>(Date.now());
 
@@ -36,7 +37,8 @@ const ProfileDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (!id) { setLoading(false); return; }
+      if (!id) { setLoading(false); setFetchError("No profile ID provided."); return; }
+      setFetchError(null);
 
       // Try fetching by profile row `id` first, then fall back to `user_id`.
       // Notifications link with `user_id` (/profile/<user_id>), but some
@@ -44,22 +46,16 @@ const ProfileDetail = () => {
       let data: any = null;
 
       const byId = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+      if (byId.error) console.error("ProfileDetail byId error:", byId.error);
       if (byId.data) {
         data = byId.data;
       } else {
         const byUserId = await supabase.from("profiles").select("*").eq("user_id", id).maybeSingle();
+        if (byUserId.error) console.error("ProfileDetail byUserId error:", byUserId.error);
         if (byUserId.data) data = byUserId.data;
       }
 
       if (data) {
-        // Hidden profile: non-owner gets a blocked view (RLS also enforces this server-side)
-        const isOwner = user?.id === data.user_id;
-        if ((data as any).is_hidden && !isOwner) {
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-
         setRawProfile(data);
 
         // Determine viewer relationship and apply privacy filter
@@ -84,6 +80,9 @@ const ProfileDetail = () => {
 
         // Log profile view event
         logEngagementEvent(user?.id, data.user_id, 'view', { source: 'profile_detail' });
+      } else {
+        console.error("ProfileDetail: no profile found for id:", id);
+        setFetchError("Profile not found. The user may not have completed their profile yet.");
       }
       setLoading(false);
     };
@@ -220,11 +219,22 @@ const ProfileDetail = () => {
     );
   }
 
-  if (!profile) {
+  if (fetchError || !profile) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Profile not found</p>
-        <button onClick={goBack} className="text-primary text-sm font-semibold hover:underline underline-offset-4">Go Back</button>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-8 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-2">
+          <UserX className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="font-heading text-lg font-bold text-foreground">Profile Unavailable</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {fetchError || "This profile couldn't be loaded. It may be incomplete or private."}
+        </p>
+        <button
+          onClick={goBack}
+          className="mt-2 rounded-2xl bg-primary text-primary-foreground px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          Go Back
+        </button>
       </div>
     );
   }
